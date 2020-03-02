@@ -7,6 +7,7 @@ import numpy as np
 import datetime as dt
 import parser
 
+
 class WELData:
     data = None
     beginTime = None
@@ -51,9 +52,8 @@ class WELData:
         return timeRange
 
 
-    def varParse(self,
+    def varExprParse(self,
                  string):
-        from math import *
         for var in self.data.columns:
             string = string.replace(var, "self.data['" + var + "']")
         # print(string)
@@ -63,20 +63,20 @@ class WELData:
     def plot(self,
              x,
              y,
-             xunits='time',
-             yunits='',
+             xunits='Time',
+             yunits='None',
              timerange=None):
         timeRange = self.timeCondition(timerange)
         if type(y) is not list: y = [y]
 
         mindex = self.data.dateandtime > timeRange[0]
         maxdex = self.data.dateandtime < timeRange[1]
-        plotx = eval(self.varParse(x))[mindex & maxdex]
-        ploty = [eval(self.varParse(expr))[mindex & maxdex] for expr in y]
+        plotx = eval(self.varExprParse(x))[mindex & maxdex]
+        ploty = [eval(self.varExprParse(expr))[mindex & maxdex] for expr in y]
 
         plt.figure(figsize=self.figsize)
 
-        if ('time' or 'date' or 'dateandtime') in x:
+        if 'time' or 'date' in x:
             [plt.plot_date(plotx, plotDatum, fmt='-', label=label)
                 for label, plotDatum in zip(y, ploty)]
             plt.gcf().autofmt_xdate()
@@ -85,6 +85,12 @@ class WELData:
                 for label, plotDatum in zip(y, ploty)]
 
         plt.xlabel(xunits)
+        if yunits is 'None':
+            usedVars = [var for var in self.data.columns if var in y[0]]
+            if usedVars[0][-1] is 'T':
+                yunits = "Temperature [°C]"
+            if usedVars[0][-1] is 'W':
+                yunits = "Power [W]"
         plt.ylabel(yunits)
         plt.legend()
         plt.grid(True)
