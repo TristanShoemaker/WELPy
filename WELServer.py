@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 # import sys
 import datetime as dt
-
+import parser
 
 class WELData:
     data = None
@@ -20,17 +20,17 @@ class WELData:
 
         self.data.Date = self.data.Date.apply(
                             lambda date: dt.datetime.strptime(date, "%m/%d/%Y"))
-        self.data['dateTime'] = [dt.datetime.combine(date, time)
+        self.data['dateandtime'] = [dt.datetime.combine(date, time)
                     for date, time in zip(self.data.Date, self.data.Time)]
-        self.data.index = self.data['dateTime']
-        self.beginTime = self.data.dateTime.iloc[0]
-        self.endTime = self.data.dateTime.iloc[-1]
+        self.data.index = self.data['dateandtime']
+        self.beginTime = self.data.dateandtime.iloc[0]
+        self.endTime = self.data.dateandtime.iloc[-1]
 
         self.data['power_tot'] = self.data.HP_W + self.data.TAH_W
         self.data['T_diff'] = self.data.inside_T - self.data.outside_T
 
-        self.data['eff_rolling'] = self.data.eff.rolling('D').mean()
-        
+        self.data['eff_ma'] = self.data.eff.rolling('D').std()
+
 
     def vars(self):
         return [col for col in self.data.columns]
@@ -51,27 +51,37 @@ class WELData:
         return timeRange
 
 
+    def varParse(self,
+                 string):
+        from math import *
+        for var in self.data.columns:
+            string = string.replace(var, "self.data['" + var + "']")
+        # print(string)
+        return compile(string, 'plotInput', 'eval')
+
+
     def plot(self,
              x,
              y,
              xunits='time',
              yunits='',
-             timeRange=None):
-        timeRange = self.timeCondition(timeRange)
+             timerange=None):
+        timeRange = self.timeCondition(timerange)
+        if type(y) is not list: y = [y]
 
-        mindex = self.data.dateTime > timeRange[0]
-        maxdex = self.data.dateTime < timeRange[1]
-        plotx = self.data[x][mindex & maxdex]
-        ploty = [self.data[var][mindex & maxdex] for var in y]
+        mindex = self.data.dateandtime > timeRange[0]
+        maxdex = self.data.dateandtime < timeRange[1]
+        plotx = eval(self.varParse(x))[mindex & maxdex]
+        ploty = [eval(self.varParse(expr))[mindex & maxdex] for expr in y]
 
         plt.figure(figsize=self.figsize)
 
-        if x == 'time' or 'date' or 'dateTime':
+        if ('time' or 'date' or 'dateandtime') in x:
             [plt.plot_date(plotx, plotDatum, fmt='-', label=label)
                 for label, plotDatum in zip(y, ploty)]
             plt.gcf().autofmt_xdate()
         else:
-            [plt.scatter(plotx, plotDatum, fmt='-', label=label)
+            [plt.plot(plotx, plotDatum, '.', label=label)
                 for label, plotDatum in zip(y, ploty)]
 
         plt.xlabel(xunits)
