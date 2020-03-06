@@ -17,19 +17,28 @@ class WELData:
 
     def __init__(self,
                  dataPath):
-        self.data = pd.read_excel(dataPath)
+        try:
+            self.data = pd.read_excel(dataPath)
+        except:
+            self.data = pd.read_csv(dataPath, sep='\t',
+                                    index_col=False, na_values=['?'])
+        for col in self.data.columns:
+            if ('Date' not in col) and ('Time' not in col):
+                self.data[col] = self.data[col].astype(np.float64)
 
-        self.data.Date = self.data.Date.apply(
-                            lambda date: dt.datetime.strptime(date, "%m/%d/%Y"))
+        self.data.Date = self.data.Date.apply(lambda date:
+                              dt.datetime.strptime(date, "%m/%d/%Y"))
+        self.data.Time = self.data.Time.apply(lambda time:
+                              dt.datetime.strptime(time, "%H:%M:%S").time())
         self.data['dateandtime'] = [dt.datetime.combine(date, time)
-                    for date, time in zip(self.data.Date, self.data.Time)]
+                              for date, time in zip(self.data.Date,
+                                                    self.data.Time)]
         self.data.index = self.data['dateandtime']
         self.beginTime = self.data.dateandtime.iloc[0]
         self.endTime = self.data.dateandtime.iloc[-1]
 
         self.data['power_tot'] = self.data.HP_W + self.data.TAH_W
         self.data['T_diff'] = self.data.inside_T - self.data.outside_T
-
         self.data['eff_ma'] = self.data.eff.rolling('D').std()
 
 
@@ -53,11 +62,11 @@ class WELData:
 
 
     def varExprParse(self,
-                 string):
+                     string):
         for var in self.data.columns:
-            string = string.replace(var, "self.data['" + var + "']")
-        # print(string)
-        return compile(string, 'plotInput', 'eval')
+            string = string.replace(var, "self.data['" + var + "'][mask]")
+        print(string)
+        return string
 
 
     def plot(self,
@@ -69,18 +78,21 @@ class WELData:
         timeRange = self.timeCondition(timerange)
         if type(y) is not list: y = [y]
 
-        mindex = self.data.dateandtime > timeRange[0]
-        maxdex = self.data.dateandtime < timeRange[1]
-        plotx = eval(self.varExprParse(x))[mindex & maxdex]
-        ploty = [eval(self.varExprParse(expr))[mindex & maxdex] for expr in y]
+        mask = ((self.data.dateandtime > timeRange[0])
+               & (self.data.dateandtime < timeRange[1]))
+        p_locals = locals()
+        plotx = eval(self.varExprParse(x), p_locals)
+        # print(plotx)
+        ploty = [eval(self.varExprParse(expr), p_locals) for expr in y]
 
         plt.figure(figsize=self.figsize)
 
-        if 'time' or 'date' in x:
+        if ('time' or 'date') in x:
             [plt.plot_date(plotx, plotDatum, fmt='-', label=label)
                 for label, plotDatum in zip(y, ploty)]
             plt.gcf().autofmt_xdate()
         else:
+            print("hello")
             [plt.plot(plotx, plotDatum, '.', label=label)
                 for label, plotDatum in zip(y, ploty)]
 
