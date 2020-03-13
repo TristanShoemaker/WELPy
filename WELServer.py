@@ -3,24 +3,36 @@ from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 import matplotlib.pyplot as plt
 import numpy as np
-# import sys
 import datetime as dt
 import parser
 import wget
 import os
 
 class WELData:
-    data = None
-    beginTime = None
+    data = None             # pandas dataframe class variable
+    beginTime = None        # first and last times in the dataframe
     endTime = None
-    figsize = (11,5)
+    figsize = (11,5)        # default figure size
 
 
+    """
+    Initialize the Weldata Object.
+    If datapath is given, data will be read from the file, otherwise this
+    month's log is downloaded and read.
+    Columns with all NaNs are dropped.
+
+    ADDED COLUMNS:
+    dateandtime : combined datetime object for each row.
+    power_tot : TAH_W + HP_W
+    T_diff: living_T - outside_T
+    eff_ma: day length rolling average of efficiency
+    """
     def __init__(self,
                  dataPath=None):
         if dataPath is None:
-
-            dat_file_url = 'http://www.welserver.com/WEL1060/WEL_log_2020_03.xls'
+            now = dt.datetime.now()
+            dat_url = ('http://www.welserver.com/WEL1060/'
+                      F'WEL_log_now{now.year}_{now.month:02d}.xls')
             dataPath = './temp_WEL_data.xls'
             wget.download(dat_file_url, dataPath)
 
@@ -31,6 +43,7 @@ class WELData:
                                     index_col=False, na_values=['?'])
         os.remove(dataPath)
         self.data.dropna(axis=1, how='all', inplace=True)
+
         for col in self.data.columns:
             if ('Date' not in col) and ('Time' not in col):
                 self.data[col] = self.data[col].astype(np.float64)
@@ -52,14 +65,26 @@ class WELData:
         self.data['eff_ma'] = self.data.eff.rolling('D').std()
 
 
+    """
+    Returns list of all column names.
+    """
     def vars(self):
         return [col for col in self.data.columns]
 
 
-    def dropna(self):
-        self.data.dropna(inplace=True)
+    """
+    WIP
+    """
+    def dropna(self,
+               column):
+        self.data.dropna(how='any', inplace=True)
 
 
+    """
+    Takes a list with a start and end time. If either is 'none', defaults to
+    start or end time respectively. Converts iso strings to datetime, keeps
+    datetime as datetime.
+    """
     def timeCondition(self,
                       timeRange):
         if timeRange == None:
@@ -79,16 +104,32 @@ class WELData:
         return timeRange
 
 
+
+    """
+    Converts variable name string into object data string.
+    """
     def varExprParse(self,
                      string):
-        string = string.replace(string, "self.data['" + string + "'][mask]")
-        # print(string)
+        for var in self.data.columns:
+            string = string.replace(var, "self.data['" + var + "'][mask]")
         return string
 
+    """
+    Plot two variables against each other.
 
+    y : Single variable or list of variable names to plot on y axis. Math
+       operations can be used in a variable string in the list.
+    optional x : Defaults to 'dateandtime'. Variable name to plot on x axis.
+    optional xunits : Defaults to 'Time'. Variable string to display on x axis.
+    optional yunits : Defaults to 'None'. Varaible string to display on y axis.
+    optional timerange : 2 length array with start and end time as iso string,
+                         datetime object or if 'none' defaults to start/end
+                         time in that position.
+    optional axes : axes to draw plot on instead of default figure.
+    """
     def plotVar(self,
-                x,
                 y,
+                x='dateandtime',
                 xunits='Time',
                 yunits='None',
                 timerange=None,
@@ -128,6 +169,14 @@ class WELData:
         plt.tight_layout()
 
 
+    """
+    Plots all hardcoded status variables against time.
+
+    optional timerange : 2 length array with start and end time as iso string,
+                         datetime object or if 'none' defaults to start/end
+                         time in that position.
+    optional axes : axes to draw plot on instead of default figure.
+    """
     def plotStatus(self,
                    timerange=None,
                    axes=None):
