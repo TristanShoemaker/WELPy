@@ -4,7 +4,7 @@ register_matplotlib_converters()
 import matplotlib.pyplot as plt
 import numpy as np
 import datetime as dt
-import parser
+import re
 import wget
 import os
 
@@ -32,9 +32,9 @@ class WELData:
         if dataPath is None:
             now = dt.datetime.now()
             dat_url = ('http://www.welserver.com/WEL1060/'
-                      F'WEL_log_now{now.year}_{now.month:02d}.xls')
+                      F'WEL_log_{now.year}_{now.month:02d}.xls')
             dataPath = './temp_WEL_data.xls'
-            wget.download(dat_file_url, dataPath)
+            wget.download(dat_url, dataPath)
 
         try:
             self.data = pd.read_excel(dataPath)
@@ -106,13 +106,28 @@ class WELData:
 
 
     """
-    Converts variable name string into object data string.
+    Converts variable name string into object data string, to be evaluated as
+    a python expression.
+
+    string: expression string to be modified.
     """
     def varExprParse(self,
                      string):
-        for var in self.data.columns:
-            string = string.replace(var, "self.data['" + var + "'][mask]")
-        return string
+        splitString = re.split('(\\()|(\\))|(\s)', string)
+        splitString = [w for w in splitString if w is not None]
+
+        expr = ""
+        for word in splitString:
+            possibleVars = [var for var in self.data.columns if var in word]
+            if len(possibleVars) > 0:
+                foundVar = max(possibleVars, key=len)
+                expr += word.replace(foundVar,
+                                     "self.data['" + foundVar + "'][mask]")
+            else:
+                expr += word
+
+        return expr
+
 
     """
     Plot two variables against each other.
