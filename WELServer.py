@@ -7,13 +7,15 @@ import datetime as dt
 import re
 import wget
 import os
+from astral import sun, LocationInfo
+
 
 class WELData:
     data = None             # pandas dataframe class variable
     beginTime = None        # first and last times in the dataframe
     endTime = None
     figsize = (11,5)        # default figure size
-
+    loc = LocationInfo('Home', 'MA', 'EST', 42.485680, -71.435226) # for sun
 
     """
     Initialize the Weldata Object.
@@ -29,13 +31,14 @@ class WELData:
     """
     def __init__(self,
                  dataPath=None):
+        # Download or import, read and prepare data
         if dataPath is None:
             now = dt.datetime.now()
             dat_url = ('http://www.welserver.com/WEL1060/'
                       F'WEL_log_{now.year}_{now.month:02d}.xls')
             dataPath = './temp_WEL_data.xls'
             wget.download(dat_url, dataPath)
-
+            print()
         try:
             self.data = pd.read_excel(dataPath)
         except:
@@ -52,17 +55,23 @@ class WELData:
                               dt.datetime.strptime(date, "%m/%d/%Y"))
         self.data.Time = self.data.Time.apply(lambda time:
                               dt.datetime.strptime(time, "%H:%M:%S").time())
-        self.data['dateandtime'] = [dt.datetime.combine(date, time)
-                              for date, time in zip(self.data.Date,
-                                                    self.data.Time)]
+
+        # DAYLIGHT SAVINGS CORRECTOR
+        dls = dt.timedelta(hours=1)
+
+        self.data['dateandtime'] = [dt.datetime.combine(date, time) + dls
+                                 for date, time in zip(self.data.Date,
+                                                       self.data.Time)]
         self.data.index = self.data['dateandtime']
 
+        # Set Class begin and end variables
         self.beginTime = self.data.dateandtime.iloc[0]
         self.endTime = self.data.dateandtime.iloc[-1]
 
+        # Additional calculated columns
         self.data['power_tot'] = self.data.HP_W + self.data.TAH_W
         self.data['T_diff'] = self.data.living_T - self.data.outside_T
-        self.data['eff_ma'] = self.data.eff.rolling('D').std()
+        self.data['eff_ma'] = self.data.eff.rolling('12H').mean()
 
 
     """
@@ -128,6 +137,37 @@ class WELData:
 
         return expr
 
+    """
+    Adds day/night background shading based on calculated sunrise/sunset times
+    to the specified axes.
+
+    axes : axes to plot on.
+    timeRange : timerange to plot on.
+    limits : y axis extent of the shading.
+    """
+    def plotNightime(self,
+                     axes,
+                     timeRange,
+                     limits):
+        axes.autoscale(enable=False)
+        dayList = [(timeRange[0] + dt.timedelta(days=x)).date()
+                    for x in range((timeRange[1] - timeRange[0]).days + 1)]
+
+        for day in dayList:
+            day = dt.datetime.combine(day, dt.datetime.min.time())
+            sunrise = (sun.sunrise(self.loc.observer, date=day)
+                       - dt.timedelta(hours=4))
+            sunset = (sun.sunset(self.loc.observer,date=day)
+                      - dt.timedelta(hours=4))
+            timelist = [day, sunrise - dt.timedelta(seconds=1), sunrise,
+                               sunset, sunset + dt.timedelta(seconds=1),
+                               day + dt.timedelta(days=1)]
+
+            axes.fill_between(timelist, np.full(len(timelist), limits[0]),
+                              np.full(len(timelist), limits[1]),
+                              where=[True, True, False, False, True, True],
+                              facecolor='black', alpha=0.1)
+
 
     """
     Plot two variables against each other.
@@ -141,6 +181,7 @@ class WELData:
                          datetime object or if 'none' defaults to start/end
                          time in that position.
     optional axes : axes to draw plot on instead of default figure.
+    optional nighttime : adds day/night shading to plot.
     """
     def plotVar(self,
                 y,
@@ -148,7 +189,8 @@ class WELData:
                 xunits='Time',
                 yunits='None',
                 timerange=None,
-                axes=None):
+                axes=None,
+                nighttime=True):
         timeRange = self.timeCondition(timerange)
         if type(y) is not list: y = [y]
 
@@ -156,7 +198,6 @@ class WELData:
                & (self.data.dateandtime < timeRange[1]))
         p_locals = locals()
         plotx = eval(self.varExprParse(x), p_locals)
-        # print(plotx)
         ploty = [eval(self.varExprParse(expr), p_locals) for expr in y]
 
         if axes is None:
@@ -172,6 +213,10 @@ class WELData:
                 for label, plotDatum in zip(y, ploty)]
             axes.set_xlabel(xunits)
 
+        if nighttime:
+            self.plotNightime(axes, timeRange,
+                         (np.nanmin(ploty) - 100, np.nanmax(ploty) + 100))
+
         if yunits is 'None':
             usedVars = [var for var in self.data.columns if var in y[0]]
             if usedVars[0][-1] is 'T':
@@ -179,8 +224,10 @@ class WELData:
             if usedVars[0][-1] is 'W':
                 yunits = "Power [W]"
         axes.set_ylabel(yunits)
-        axes.legend()
+        axes.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
+                    ncol=len(y), mode="expand", borderaxespad=0)
         axes.grid(True)
+        axes.set_xlim(timeRange)
         plt.tight_layout()
 
 
@@ -191,10 +238,12 @@ class WELData:
                          datetime object or if 'none' defaults to start/end
                          time in that position.
     optional axes : axes to draw plot on instead of default figure.
+    optional nighttime : adds day/night shading to plot.
     """
     def plotStatus(self,
                    timerange=None,
-                   axes=None):
+                   axes=None,
+                   nighttime=True):
         status_list = ['aux_heat_b',
                        'heat_1_b',
                        'heat_2_b',
@@ -221,10 +270,15 @@ class WELData:
         [axes.plot_date(plotx, plotDatum, fmt='-', label=label)
             for label, plotDatum in zip(labels, ploty)]
 
+        if nighttime:
+            self.plotNightime(axes, timeRange,
+                         (np.nanmin(ploty) - 100, np.nanmax(ploty) + 100))
+
         plt.setp(axes.get_xticklabels(), rotation=20, ha='right')
         axes.set_yticks(np.arange(0, 16, 2))
         axes.set_yticklabels(labels)
         axes.yaxis.set_label_position("right")
         axes.yaxis.tick_right()
         axes.grid(True)
+        axes.set_xlim(timeRange)
         plt.tight_layout()
