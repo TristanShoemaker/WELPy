@@ -17,6 +17,7 @@ class WELData:
     figsize = (11,5)        # default figure size
     loc = LocationInfo('Home', 'MA', 'EST', 42.485680, -71.435226) # for sun
 
+
     """
     Initialize the Weldata Object.
     If datapath is given, data will be read from the file, otherwise this
@@ -26,11 +27,15 @@ class WELData:
     ADDED COLUMNS:
     dateandtime : combined datetime object for each row.
     power_tot : TAH_W + HP_W
-    T_diff: living_T - outside_T
-    eff_ma: day length rolling average of efficiency
+    T_diff : living_T - outside_T
+    eff_ma : day length rolling average of efficiency
+
+    dataPath : filepath for data file.
+    keepData : boolean keep downloaded data file. Default False.
     """
     def __init__(self,
-                 dataPath=None):
+                 dataPath=None,
+                 keepData=False):
         # Download or import, read and prepare data
         if dataPath is None:
             now = dt.datetime.now()
@@ -44,7 +49,9 @@ class WELData:
         except:
             self.data = pd.read_csv(dataPath, sep='\t',
                                     index_col=False, na_values=['?'])
-        os.remove(dataPath)
+        if not keepData:
+            os.remove(dataPath)
+
         self.data.dropna(axis=1, how='all', inplace=True)
 
         for col in self.data.columns:
@@ -150,8 +157,8 @@ class WELData:
                      timeRange,
                      limits):
         axes.autoscale(enable=False)
-        dayList = [(timeRange[0] + dt.timedelta(days=x)).date()
-                    for x in range((timeRange[1] - timeRange[0]).days + 1)]
+        dayList = [(timeRange[0] + dt.timedelta(days=x - 1)).date()
+                    for x in range((timeRange[1] - timeRange[0]).days + 3)]
 
         for day in dayList:
             day = dt.datetime.combine(day, dt.datetime.min.time())
@@ -160,8 +167,8 @@ class WELData:
             sunset = (sun.sunset(self.loc.observer,date=day)
                       - dt.timedelta(hours=4))
             timelist = [day, sunrise - dt.timedelta(seconds=1), sunrise,
-                               sunset, sunset + dt.timedelta(seconds=1),
-                               day + dt.timedelta(days=1)]
+                        sunset, sunset + dt.timedelta(seconds=1),
+                        day + dt.timedelta(days=1)]
 
             axes.fill_between(timelist, np.full(len(timelist), limits[0]),
                               np.full(len(timelist), limits[1]),
@@ -224,6 +231,8 @@ class WELData:
             if usedVars[0][-1] is 'W':
                 yunits = "Power [W]"
         axes.set_ylabel(yunits)
+        axes.yaxis.set_label_position("right")
+        axes.yaxis.tick_right()
         axes.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
                     ncol=len(y), mode="expand", borderaxespad=0)
         axes.grid(True)
