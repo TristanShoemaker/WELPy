@@ -20,7 +20,7 @@ class WELData:
 
     """
     Initialize the Weldata Object.
-    If datapath is given, data will be read from the file, otherwise this
+    If filepath is given, data will be read from the file, otherwise this
     month's log is downloaded and read.
     Columns with all NaNs are dropped.
 
@@ -30,27 +30,29 @@ class WELData:
     T_diff : living_T - outside_T
     eff_ma : day length rolling average of efficiency
 
-    dataPath : filepath for data file.
-    keepData : boolean keep downloaded data file. Default False.
+    filepath : filepath for data file.
+    keepdata : boolean keep downloaded data file. Default False.
     """
     def __init__(self,
-                 dataPath=None,
-                 keepData=False):
+                 filepath=None,
+                 keepdata=False):
         # Download or import, read and prepare data
-        if dataPath is None:
+        download = False
+        if filepath is None:
+            download = True
             now = dt.datetime.now()
             dat_url = ('http://www.welserver.com/WEL1060/'
                       F'WEL_log_{now.year}_{now.month:02d}.xls')
-            dataPath = './temp_WEL_data.xls'
-            wget.download(dat_url, dataPath)
+            filepath = './temp_WEL_data.xls'
+            wget.download(dat_url, filepath)
             print()
         try:
-            self.data = pd.read_excel(dataPath)
+            self.data = pd.read_excel(filepath)
         except:
-            self.data = pd.read_csv(dataPath, sep='\t',
+            self.data = pd.read_csv(filepath, sep='\t',
                                     index_col=False, na_values=['?'])
-        if not keepData:
-            os.remove(dataPath)
+        if not keepdata and download:
+            os.remove(filepath)
 
         self.data.dropna(axis=1, how='all', inplace=True)
 
@@ -143,6 +145,7 @@ class WELData:
                 expr += word
 
         return expr
+
 
     """
     Adds day/night background shading based on calculated sunrise/sunset times
