@@ -54,7 +54,7 @@ class WELData:
         if not keepdata and download:
             os.remove(filepath)
 
-        self.data.dropna(axis=1, how='all', inplace=True)
+        # self.data.dropna(axis=1, how='all', inplace=True)
 
         for col in self.data.columns:
             if ('Date' not in col) and ('Time' not in col):
@@ -153,12 +153,11 @@ class WELData:
 
     axes : axes to plot on.
     timeRange : timerange to plot on.
-    limits : y axis extent of the shading.
     """
     def plotNightime(self,
                      axes,
-                     timeRange,
-                     limits):
+                     timeRange):
+        # print(axes.margins() + axes.get_ylim())
         axes.autoscale(enable=False)
         dayList = [(timeRange[0] + dt.timedelta(days=x - 1)).date()
                     for x in range((timeRange[1] - timeRange[0]).days + 3)]
@@ -172,7 +171,7 @@ class WELData:
             timelist = [day, sunrise - dt.timedelta(seconds=1), sunrise,
                         sunset, sunset + dt.timedelta(seconds=1),
                         day + dt.timedelta(days=1)]
-
+            limits = axes.get_ylim()
             axes.fill_between(timelist, np.full(len(timelist), limits[0]),
                               np.full(len(timelist), limits[1]),
                               where=[True, True, False, False, True, True],
@@ -218,14 +217,15 @@ class WELData:
             [axes.plot_date(plotx, plotDatum, fmt='-', label=label)
                 for label, plotDatum in zip(y, ploty)]
             plt.setp(axes.get_xticklabels(), rotation=20, ha='right')
+            axes.set_xlim(timeRange)
+
+            if nighttime:
+                self.plotNightime(axes, timeRange)
         else:
             [plt.plot(plotx, plotDatum, '.', label=label)
                 for label, plotDatum in zip(y, ploty)]
             axes.set_xlabel(xunits)
-
-        if nighttime:
-            self.plotNightime(axes, timeRange,
-                         (np.nanmin(ploty) - 100, np.nanmax(ploty) + 100))
+            axes.set_xlim((np.nanmin(plotx), np.nanmax(plotx)))
 
         if yunits is 'None':
             usedVars = [var for var in self.data.columns if var in y[0]]
@@ -239,7 +239,6 @@ class WELData:
         axes.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
                     ncol=len(y), mode="expand", borderaxespad=0)
         axes.grid(True)
-        axes.set_xlim(timeRange)
         plt.tight_layout()
 
 
