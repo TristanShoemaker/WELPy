@@ -7,6 +7,7 @@ import datetime as dt
 import re
 import wget
 import os
+import shutil
 from astral import sun, LocationInfo
 
 
@@ -44,8 +45,10 @@ class WELData:
             dat_url = ('http://www.welserver.com/WEL1060/'
                       F'WEL_log_{now.year}_{now.month:02d}.xls')
             filepath = './temp_WEL_data.xls'
-            wget.download(dat_url, filepath)
+            tempfile = wget.download(dat_url, filepath)
             print()
+            if os.path.exists(filepath):
+                shutil.move(tempfile, filepath)
         try:
             self.data = pd.read_excel(filepath)
         except:
@@ -282,8 +285,7 @@ class WELData:
             for label, plotDatum in zip(labels, ploty)]
 
         if nighttime:
-            self.plotNightime(axes, timeRange,
-                         (np.nanmin(ploty) - 100, np.nanmax(ploty) + 100))
+            self.plotNightime(axes, timeRange)
 
         plt.setp(axes.get_xticklabels(), rotation=20, ha='right')
         axes.set_yticks(np.arange(0, 16, 2))
