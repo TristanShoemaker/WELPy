@@ -214,6 +214,7 @@ class WELData:
                           mask for all plotted variables.
     optional axes : axes to draw plot on instead of default figure.
     optional nighttime : adds day/night shading to plot.
+    optional **kwargs : passed on to plot function
 
     returns plotted data as dictionary of dataframes
     """
@@ -272,12 +273,14 @@ class WELData:
         axes.set_ylabel(yunits)
         axes.yaxis.set_label_position("right")
         axes.yaxis.tick_right()
-        axes.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
-                    ncol=len(y), mode="expand", borderaxespad=0)
+        # axes.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
+        #             ncol=len(y), mode="expand", borderaxespad=0)
+        axes.legend(bbox_to_anchor=(-0.02, 1,), loc='upper right',
+                    borderaxespad=0)
         axes.grid(True)
         plt.tight_layout()
 
-        return {label:datum for label, datum in zip(y, ploty)}
+        return {label:datum * smask for label, datum in zip(y, ploty)}
 
 
     """
