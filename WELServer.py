@@ -130,10 +130,13 @@ class WELData:
     Converts variable name string into object data string, to be evaluated as
     a python expression.
 
-    string: expression string to be modified.
+    string : expression string to be modified.
+    optional mask : indicates this is for status mask data, including a call to
+                    remOffset
     """
     def varExprParse(self,
-                     string):
+                     string,
+                     mask=False):
         splitString = re.split('(\\()|(\\))|(\s)', string)
         splitString = [w for w in splitString if w is not None]
 
@@ -142,8 +145,11 @@ class WELData:
             possibleVars = [var for var in self.data.columns if var in word]
             if len(possibleVars) > 0:
                 foundVar = max(possibleVars, key=len)
-                expr += word.replace(foundVar,
-                                     "self.data['" + foundVar + "'][mask]")
+                if mask:
+                    rst = "self.remOffset(self.data['" + foundVar + "'][tmask])"
+                else:
+                    rst = "self.data['" + foundVar + "'][tmask]"
+                expr += word.replace(foundVar, rst)
             else:
                 expr += word
 
@@ -182,6 +188,15 @@ class WELData:
 
 
     """
+    Remove plotting offset from status channel data
+    status : data from which to remove offset
+    """
+    def remOffset(self,
+                  status):
+        return (np.array(status) % 2).astype(int)
+
+
+    """
     Plot two variables against each other.
 
     y : Single variable or list of variable names to plot on y axis. Math
@@ -192,8 +207,12 @@ class WELData:
     optional timerange : 2 length array with start and end time as iso string,
                          datetime object or if 'none' defaults to start/end
                          time in that position.
+    optional statusmask : string describing which binary channels to use as a
+                          mask for all plotted variables.
     optional axes : axes to draw plot on instead of default figure.
     optional nighttime : adds day/night shading to plot.
+
+    returns plotted data as dictionary of dataframes
     """
     def plotVar(self,
                 y,
@@ -201,16 +220,21 @@ class WELData:
                 xunits='Time',
                 yunits='None',
                 timerange=None,
+                statusmask=None,
                 axes=None,
                 nighttime=True):
         timeRange = self.timeCondition(timerange)
         if type(y) is not list: y = [y]
 
-        mask = ((self.data.dateandtime > timeRange[0])
-               & (self.data.dateandtime < timeRange[1]))
+        tmask = ((self.data.dateandtime > timeRange[0])
+                 & (self.data.dateandtime < timeRange[1]))
         p_locals = locals()
+        if statusmask is not None:
+            smask = eval(self.varExprParse(statusmask, mask=True), p_locals)
+        else: smask = 1
+
         plotx = eval(self.varExprParse(x), p_locals)
-        ploty = [eval(self.varExprParse(expr), p_locals) for expr in y]
+        ploty = [eval(self.varExprParse(expr), p_locals) * smask for expr in y]
 
         if axes is None:
             fig = plt.figure(figsize=self.figsize)
@@ -244,6 +268,8 @@ class WELData:
         axes.grid(True)
         plt.tight_layout()
 
+        return {label:datum for label, datum in zip(y, ploty)}
+
 
     """
     Plots all hardcoded status variables against time.
@@ -269,7 +295,7 @@ class WELData:
         labels = [stat[:-2] for stat in status_list]
         timeRange = self.timeCondition(timerange)
 
-        mask = ((self.data.dateandtime > timeRange[0])
+        tmask = ((self.data.dateandtime > timeRange[0])
                & (self.data.dateandtime < timeRange[1]))
 
         p_locals = locals()
@@ -284,6 +310,7 @@ class WELData:
         [axes.plot_date(plotx, plotDatum, fmt='-', label=label)
             for label, plotDatum in zip(labels, ploty)]
 
+        axes.set_ylim((-0.75, 2 * (len(status_list) - 1) + 1.75))
         if nighttime:
             self.plotNightime(axes, timeRange)
 
