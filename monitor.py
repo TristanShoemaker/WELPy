@@ -8,10 +8,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-a', action='store_true',
                     help='plot all data')
 parser.add_argument('-t', type=int,
-                    help='specify past number of hours to plot')
+                    help='specify number of hours into past to '
+                         'plot. Example: <-t 12> plots the past 12 hours.')
 parser.add_argument('-r', type=str, action='store', nargs=2,
                     help='specify start and end time to plot as two strings '
-                         'in iso format')
+                         'in iso format. Example: <-r \'2020-03-22 12:00\' '
+                         '\'2020-03-22 15:00\'>')
 
 args = parser.parse_args()
 
