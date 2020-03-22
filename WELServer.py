@@ -246,14 +246,14 @@ class WELData:
             axes = plt.gca()
 
         if ('time' or 'date') in x:
-            lines = {label:axes.plot(plotx, plotDatum * smask, '-', label=label,
-                                     **kwargs)
+            lines = {label:axes.plot_date(plotx, plotDatum * smask, '-',
+                                          label=label, **kwargs)
                      for label, plotDatum in zip(y, ploty)}
             if statusmask is not None:
-                [axes.plot(plotx, plotDatum, '-', alpha=0.4,
-                           color=lines[label][0].get_color(), **kwargs)
+                [axes.plot_date(plotx, plotDatum, fmt='-', alpha=0.3,
+                                color=lines[label][0].get_color(), **kwargs)
                  for label, plotDatum in zip(y, ploty)]
-            plt.setp(axes.get_xticklabels(), rotation=20, ha='right')
+            # plt.setp(axes.get_xticklabels(), rotation=20, ha='right')
             axes.set_xlim(timeRange)
 
             if nighttime:
@@ -275,7 +275,7 @@ class WELData:
         axes.yaxis.tick_right()
         # axes.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
         #             ncol=len(y), mode="expand", borderaxespad=0)
-        axes.legend(bbox_to_anchor=(-0.02, 1,), loc='upper right',
+        axes.legend(bbox_to_anchor=(-0.01, 1,), loc='upper right',
                     borderaxespad=0)
         axes.grid(True)
         plt.tight_layout()
