@@ -146,7 +146,8 @@ class WELData:
             if len(possibleVars) > 0:
                 foundVar = max(possibleVars, key=len)
                 if mask:
-                    rst = "self.remOffset(self.data['" + foundVar + "'][tmask])"
+                    rst = ("self.remOffset(self.data['"
+                           + foundVar + "'][tmask])")
                 else:
                     rst = "self.data['" + foundVar + "'][tmask]"
                 expr += word.replace(foundVar, rst)
@@ -193,7 +194,9 @@ class WELData:
     """
     def remOffset(self,
                   status):
-        return (np.array(status) % 2).astype(int)
+        mask = np.array(status) % 2
+        mask[mask == 0.] = np.nan
+        return mask
 
 
     """
@@ -222,7 +225,8 @@ class WELData:
                 timerange=None,
                 statusmask=None,
                 axes=None,
-                nighttime=True):
+                nighttime=True,
+                **kwargs):
         timeRange = self.timeCondition(timerange)
         if type(y) is not list: y = [y]
 
@@ -231,26 +235,31 @@ class WELData:
         p_locals = locals()
         if statusmask is not None:
             smask = eval(self.varExprParse(statusmask, mask=True), p_locals)
-        else: smask = 1
+        else: smask = np.full(tmask.sum(), True)
 
         plotx = eval(self.varExprParse(x), p_locals)
-        ploty = [eval(self.varExprParse(expr), p_locals) * smask for expr in y]
+        ploty = [eval(self.varExprParse(expr), p_locals) for expr in y]
 
         if axes is None:
             fig = plt.figure(figsize=self.figsize)
             axes = plt.gca()
 
         if ('time' or 'date') in x:
-            [axes.plot_date(plotx, plotDatum, fmt='-', label=label)
-                for label, plotDatum in zip(y, ploty)]
+            lines = {label:axes.plot(plotx, plotDatum * smask, '-', label=label,
+                                     **kwargs)
+                     for label, plotDatum in zip(y, ploty)}
+            if statusmask is not None:
+                [axes.plot(plotx, plotDatum, '-', alpha=0.4,
+                           color=lines[label][0].get_color(), **kwargs)
+                 for label, plotDatum in zip(y, ploty)]
             plt.setp(axes.get_xticklabels(), rotation=20, ha='right')
             axes.set_xlim(timeRange)
 
             if nighttime:
                 self.plotNightime(axes, timeRange)
         else:
-            [plt.plot(plotx, plotDatum, '.', label=label)
-                for label, plotDatum in zip(y, ploty)]
+            [plt.plot(plotx, plotDatum, '.', label=label, **kwargs)
+             for label, plotDatum in zip(y, ploty)]
             axes.set_xlabel(xunits)
             axes.set_xlim((np.nanmin(plotx), np.nanmax(plotx)))
 
