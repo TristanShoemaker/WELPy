@@ -2,12 +2,12 @@ import WELServer
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import argparse
-
+import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-a', action='store_true',
                     help='plot all data')
-parser.add_argument('-t', type=int,
+parser.add_argument('-t', type=int, action='store',
                     help='specify number of hours into past to '
                          'plot. Example: <-t 12> plots the past 12 hours.')
 parser.add_argument('-r', type=str, action='store', nargs=2,
@@ -17,15 +17,15 @@ parser.add_argument('-r', type=str, action='store', nargs=2,
 
 args = parser.parse_args()
 
-if args.t is not None:
+if args.t:
     timerange = [datetime.now() - timedelta(hours=args.t), 'none']
-if args.a is not None:
+if args.a:
         timerange = ['none','none']
-if args.r is not None:
+if args.r:
     print(args.r)
     timerange = [datetime.fromisoformat(args.r[0]),
                  datetime.fromisoformat(args.r[1])]
-if (args.t is None) and (args.a is None) and (args.r is None):
+if len(sys.argv) < 2:
     timerange = [datetime.now() - timedelta(hours=12), 'none']
 
 
