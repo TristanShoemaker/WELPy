@@ -167,7 +167,6 @@ class WELData:
     def plotNightime(self,
                      axes,
                      timeRange):
-        print(timeRange)
         axes.autoscale(enable=False)
         dayList = [(timeRange[0] + dt.timedelta(days=x - 1)).date()
                     for x in range((timeRange[1] - timeRange[0]).days + 3)]
