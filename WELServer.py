@@ -119,7 +119,7 @@ class WELData:
         if timeRange[1] == 'none':
             timeRange[1] = self.endTime
         else:
-            if type(timeRange[0]) is str:
+            if type(timeRange[1]) is str:
                 timeRange[1] = dt.datetime.fromisoformat(timeRange[1])
 
         return timeRange
@@ -167,7 +167,7 @@ class WELData:
     def plotNightime(self,
                      axes,
                      timeRange):
-        # print(axes.margins() + axes.get_ylim())
+        print(timeRange)
         axes.autoscale(enable=False)
         dayList = [(timeRange[0] + dt.timedelta(days=x - 1)).date()
                     for x in range((timeRange[1] - timeRange[0]).days + 3)]
