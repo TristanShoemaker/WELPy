@@ -33,6 +33,8 @@ class WELData:
 
     filepath : filepath for data file.
     keepdata : boolean keep downloaded data file. Default False.
+
+    returns filepath
     """
     def __init__(self,
                  filepath=None,
@@ -43,8 +45,10 @@ class WELData:
             download = True
             now = dt.datetime.now()
             dat_url = ('http://www.welserver.com/WEL1060/'
-                      F'WEL_log_{now.year}_{now.month:02d}.xls')
-            filepath = './temp_WEL_data.xls'
+                       F'WEL_log_{now.year}_{now.month:02d}.xls')
+            filepath = ('./temp_WEL_log_'
+                        F'{now.year}_{now.month:02d}_{now.hour}_'
+                        F'{now.minute}_{now.second}.xls')
             tempfile = wget.download(dat_url, filepath)
             print()
             if os.path.exists(filepath):
@@ -54,7 +58,7 @@ class WELData:
         except:
             self.data = pd.read_csv(filepath, sep='\t',
                                     index_col=False, na_values=['?'])
-        if not keepdata and download:
+        if (not keepdata) and download:
             os.remove(filepath)
 
         # self.data.dropna(axis=1, how='all', inplace=True)
@@ -80,11 +84,25 @@ class WELData:
         self.beginTime = self.data.dateandtime.iloc[0]
         self.endTime = self.data.dateandtime.iloc[-1]
 
+        # Shift power meter data by one sample for better alignment with others
+        self.data.HP_W  = self.data.HP_W.shift(-1)
+        self.data.TAH_W  = self.data.TAH_W.shift(-1)
+
         # Additional calculated columns
         self.data['power_tot'] = self.data.HP_W + self.data.TAH_W
         self.data['T_diff'] = self.data.living_T - self.data.outside_T
         self.data['eff_ma'] = self.data.eff.rolling('12H').mean()
-
+        cops = (((1.15 * 0.37 * self.data.TAH_fpm)
+                  * (np.abs(self.data.TAH_out_T - self.data.TAH_in_T)))
+                  / (self.data.HP_W / 1000))
+        cops[cops > 10] = np.nan
+        self.data['COP'] = cops
+        self.data['well_W'] = ((0.0008517177 * 1e3) * 4.186
+                  * (np.abs(self.data.loop_out_T - self.data.loop_in_T)))
+        well_COP = self.data.well_W / (self.data.HP_W / 1000)
+        well_COP[well_COP > 10] = np.nan
+        self.data['well_COP'] = well_COP
+        
 
     """
     Returns list of all column names.
@@ -252,7 +270,7 @@ class WELData:
                 [axes.plot_date(plotx, plotDatum, fmt='-', alpha=0.3,
                                 color=lines[label][0].get_color(), **kwargs)
                  for label, plotDatum in zip(y, ploty)]
-            # plt.setp(axes.get_xticklabels(), rotation=20, ha='right')
+            plt.setp(axes.get_xticklabels(), rotation=20, ha='right')
             axes.set_xlim(timeRange)
 
             if nighttime:
@@ -269,6 +287,8 @@ class WELData:
                 yunits = "Temperature [°C]"
             if usedVars[0][-1] is 'W':
                 yunits = "Power [W]"
+            if usedVars[0][-3:] is 'fpm':
+                yunits = "Windspeed [m/s]"
         axes.set_ylabel(yunits)
         axes.yaxis.set_label_position("right")
         axes.yaxis.tick_right()
