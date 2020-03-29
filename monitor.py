@@ -34,7 +34,7 @@ dat = WELServer.WELData()
 fig, axes = plt.subplots(4, 1,
                          sharex=True,
                          figsize=(12,9),
-                         gridspec_kw={'height_ratios': [1, 0.6, 1, 0.5]})
+                         gridspec_kw={'height_ratios': [1, 0.6, 0.6, 0.6]})
 dat.plotVar(['TAH_in_T',
              'TAH_out_T',
              'gas_refrig_T',
@@ -65,5 +65,5 @@ dat.plotVar(['eff_ma',
             axes=axes[3])
 
 
-plt.subplots_adjust(hspace=0)
+plt.subplots_adjust(hspace=0.01)
 plt.show()
