@@ -4,6 +4,7 @@ register_matplotlib_converters()
 import matplotlib.pyplot as plt
 import numpy as np
 import datetime as dt
+from dateutil.relativedelta import relativedelta
 import re
 import wget
 import os
@@ -13,16 +14,35 @@ from astral import sun, LocationInfo
 
 class WELData:
     data = None             # pandas dataframe class variable
-    beginTime = None        # first and last times in the dataframe
-    endTime = None
     figsize = (11,5)        # default figure size
     loc = LocationInfo('Home', 'MA', 'EST', 42.485680, -71.435226) # for sun
+    db_path = './log_db/'
 
 
     """
     Initialize the Weldata Object.
     If filepath is given, data will be read from the file, otherwise this
     month's log is downloaded and read.
+    """
+    def __init__(self,
+                 download=True):
+        now = dt.datetime.now()
+
+        if download:
+            self.check_db()
+            dat_url = ('http://www.welserver.com/WEL1060/'
+                       F'WEL_log_{now.year}_{now.month:02d}.xls')
+            filepath = (self.db_path + F'WEL_log_{now.year}_{now.month:02d}.xls')
+            downfile = wget.download(dat_url, filepath)
+            print()
+            if os.path.exists(filepath):
+                shutil.move(downfile, filepath)
+
+        self.stitch([now, now])
+
+
+    """
+    From a filepath, load that data.
     Columns with all NaNs are dropped.
 
     ADDED COLUMNS:
@@ -33,76 +53,97 @@ class WELData:
 
     filepath : filepath for data file.
     keepdata : boolean keep downloaded data file. Default False.
-
-    returns filepath
     """
-    def __init__(self,
-                 filepath=None,
-                 keepdata=False):
-        # Download or import, read and prepare data
-        download = False
-        if filepath is None:
-            download = True
-            now = dt.datetime.now()
-            dat_url = ('http://www.welserver.com/WEL1060/'
-                       F'WEL_log_{now.year}_{now.month:02d}.xls')
-            filepath = ('./temp_WEL_log_'
-                        F'{now.year}_{now.month:02d}_{now.hour}_'
-                        F'{now.minute}_{now.second}.xls')
-            tempfile = wget.download(dat_url, filepath)
-            print()
-            if os.path.exists(filepath):
-                shutil.move(tempfile, filepath)
+    def load_data(self,
+                  filepath):
         try:
-            self.data = pd.read_excel(filepath)
+            data = pd.read_excel(filepath)
         except:
-            self.data = pd.read_csv(filepath, sep='\t',
+            data = pd.read_csv(filepath, sep='\t',
                                     index_col=False, na_values=['?'])
-        if (not keepdata) and download:
-            os.remove(filepath)
 
-        # self.data.dropna(axis=1, how='all', inplace=True)
-
-        for col in self.data.columns:
+        for col in data.columns:
             if ('Date' not in col) and ('Time' not in col):
-                self.data[col] = self.data[col].astype(np.float64)
+                data[col] = data[col].astype(np.float64)
 
-        self.data.Date = self.data.Date.apply(lambda date:
-                              dt.datetime.strptime(date, "%m/%d/%Y"))
-        self.data.Time = self.data.Time.apply(lambda time:
-                              dt.datetime.strptime(time, "%H:%M:%S").time())
+        data.Date = data.Date.apply(lambda date:
+                                    dt.datetime.strptime(date, "%m/%d/%Y"))
+        data.Time = data.Time.apply(lambda time:
+                                    dt.datetime.strptime(time,
+                                                         "%H:%M:%S").time())
 
         # DAYLIGHT SAVINGS CORRECTOR
         dls = dt.timedelta(hours=1)
 
-        self.data['dateandtime'] = [dt.datetime.combine(date, time) + dls
-                                 for date, time in zip(self.data.Date,
-                                                       self.data.Time)]
-        self.data.index = self.data['dateandtime']
-
-        # Set Class begin and end variables
-        self.beginTime = self.data.dateandtime.iloc[0]
-        self.endTime = self.data.dateandtime.iloc[-1]
+        data['dateandtime'] = [dt.datetime.combine(date, time) + dls
+                                 for date, time in zip(data.Date,
+                                                       data.Time)]
+        data.index = data['dateandtime']
 
         # Shift power meter data by one sample for better alignment with others
-        self.data.HP_W  = self.data.HP_W.shift(-1)
-        self.data.TAH_W  = self.data.TAH_W.shift(-1)
+        data.HP_W  = data.HP_W.shift(-1)
+        data.TAH_W  = data.TAH_W.shift(-1)
 
         # Additional calculated columns
-        self.data['power_tot'] = self.data.HP_W + self.data.TAH_W
-        self.data['T_diff'] = self.data.living_T - self.data.outside_T
-        self.data['eff_ma'] = self.data.eff.rolling('12H').mean()
-        cops = (((1.15 * 0.37 * self.data.TAH_fpm)
-                  * (np.abs(self.data.TAH_out_T - self.data.TAH_in_T)))
-                  / (self.data.HP_W / 1000))
+        data['power_tot'] = data.HP_W + data.TAH_W
+        data['T_diff'] = data.living_T - data.outside_T
+        data['eff_ma'] = data.eff.rolling('12H').mean()
+        cops = (((1.15 * 0.37 * data.TAH_fpm)
+                  * (np.abs(data.TAH_out_T - data.TAH_in_T)))
+                  / (data.HP_W / 1000))
         cops[cops > 10] = np.nan
-        self.data['COP'] = cops
-        self.data['well_W'] = ((0.0008517177 * 1e3) * 4.186
-                  * (np.abs(self.data.loop_out_T - self.data.loop_in_T)))
-        well_COP = self.data.well_W / (self.data.HP_W / 1000)
+        data['COP'] = cops
+        data['well_W'] = ((0.0008517177 * 1e3) * 4.186
+                          * (np.abs(data.loop_out_T - data.loop_in_T)))
+        well_COP = data.well_W / (data.HP_W / 1000)
         well_COP[well_COP > 10] = np.nan
-        self.data['well_COP'] = well_COP
-        
+        data['well_COP'] = well_COP
+
+        return data
+
+
+    """
+    Check if the last month's log has been downloaded, and download if not.
+    """
+    def check_db(self):
+        if not os.path.exists(self.db_path):
+            os.mkdir(self.db_path)
+        lastmonth = dt.datetime.now() - relativedelta(months=1)
+        prev_url = ('http://www.welserver.com/WEL1060/'
+                    F'WEL_log_{lastmonth.year}_{lastmonth.month:02d}.xls')
+        prev_db_path = (self.db_path + F'WEL_log_{lastmonth.year}'
+                                       F'_{lastmonth.month}.xls')
+        if not os.path.exists(prev_db_path):
+            try:
+                wget.download(prev_url, prev_db_path)
+            except:
+                print('No previous log to download')
+
+    """
+    Load correct months of data based on timerange.
+    """
+    def stitch(self,
+               timerange):
+        load_new = False
+        if self.data is not None:
+            if ((self.data.dateandtime.iloc[0] > timerange[0]) or
+                (self.data.dateandtime.iloc[-1] < timerange[1])):
+                load_new = True
+        else:
+            load_new = True
+        if load_new:
+            num_months = ((timerange[1].year - timerange[0].year) * 12
+                          + timerange[1].month - timerange[0].month)
+            monthlist = [timerange[0] + relativedelta(months=x)
+                         for x in range(num_months + 1)]
+            loadedstring = [F'{month.year}-{month.month}'
+                              for month in monthlist]
+            print(F'loaded: {loadedstring}')
+            datalist = [self.load_data(self.db_path + F'WEL_log_{month.year}'
+                                       F'_{month.month:02d}.xls')
+                        for month in monthlist]
+            self.data = pd.concat(datalist)
+
 
     """
     Returns list of all column names.
@@ -125,22 +166,23 @@ class WELData:
     datetime as datetime.
     """
     def timeCondition(self,
-                      timeRange):
-        if timeRange == None:
-            timeRange = [self.beginTime, self.endTime]
-            return timeRange
-        if timeRange[0] == 'none':
-            timeRange[0] = self.beginTime
+                      timerange):
+        if timerange == None:
+            timerange = [self.data.dateandtime.iloc[0],
+                         self.data.dateandtime.iloc[-1]]
+            return timerange
+        if timerange[0] == 'none':
+            timerange[0] = self.data.dateandtime.iloc[0]
         else:
-            if type(timeRange[0]) is str:
-                timeRange[0] = dt.datetime.fromisoformat(timeRange[0])
-        if timeRange[1] == 'none':
-            timeRange[1] = self.endTime
+            if type(timerange[0]) is str:
+                timerange[0] = dt.datetime.fromisoformat(timerange[0])
+        if timerange[1] == 'none':
+            timerange[1] = self.data.dateandtime.iloc[-1]
         else:
-            if type(timeRange[1]) is str:
-                timeRange[1] = dt.datetime.fromisoformat(timeRange[1])
+            if type(timerange[1]) is str:
+                timerange[1] = dt.datetime.fromisoformat(timerange[1])
 
-        return timeRange
+        return timerange
 
 
 
@@ -180,14 +222,14 @@ class WELData:
     to the specified axes.
 
     axes : axes to plot on.
-    timeRange : timerange to plot on.
+    timerange : timerange to plot on.
     """
     def plotNightime(self,
                      axes,
-                     timeRange):
+                     timerange):
         axes.autoscale(enable=False)
-        dayList = [(timeRange[0] + dt.timedelta(days=x - 1)).date()
-                    for x in range((timeRange[1] - timeRange[0]).days + 3)]
+        dayList = [(timerange[0] + dt.timedelta(days=x - 1)).date()
+                    for x in range((timerange[1] - timerange[0]).days + 3)]
 
         for day in dayList:
             day = dt.datetime.combine(day, dt.datetime.min.time())
@@ -245,11 +287,12 @@ class WELData:
                 axes=None,
                 nighttime=True,
                 **kwargs):
-        timeRange = self.timeCondition(timerange)
+        timerange = self.timeCondition(timerange)
+        self.stitch(timerange)
         if type(y) is not list: y = [y]
 
-        tmask = ((self.data.dateandtime > timeRange[0])
-                 & (self.data.dateandtime < timeRange[1]))
+        tmask = ((self.data.dateandtime > timerange[0])
+                 & (self.data.dateandtime < timerange[1]))
         p_locals = locals()
         if statusmask is not None:
             smask = eval(self.varExprParse(statusmask, mask=True), p_locals)
@@ -271,10 +314,10 @@ class WELData:
                                 color=lines[label][0].get_color(), **kwargs)
                  for label, plotDatum in zip(y, ploty)]
             plt.setp(axes.get_xticklabels(), rotation=20, ha='right')
-            axes.set_xlim(timeRange)
+            axes.set_xlim(timerange)
 
             if nighttime:
-                self.plotNightime(axes, timeRange)
+                self.plotNightime(axes, timerange)
         else:
             [plt.plot(plotx, plotDatum, '.', label=label, **kwargs)
              for label, plotDatum in zip(y, ploty)]
@@ -324,10 +367,11 @@ class WELData:
                        'zone_2_b',
                        'humid_b']
         labels = [stat[:-2] for stat in status_list]
-        timeRange = self.timeCondition(timerange)
+        timerange = self.timeCondition(timerange)
+        self.stitch(timerange)
 
-        tmask = ((self.data.dateandtime > timeRange[0])
-               & (self.data.dateandtime < timeRange[1]))
+        tmask = ((self.data.dateandtime > timerange[0])
+               & (self.data.dateandtime < timerange[1]))
 
         p_locals = locals()
         plotx = eval(self.varExprParse('dateandtime'), p_locals)
@@ -343,7 +387,7 @@ class WELData:
 
         axes.set_ylim((-0.75, 2 * (len(status_list) - 1) + 1.75))
         if nighttime:
-            self.plotNightime(axes, timeRange)
+            self.plotNightime(axes, timerange)
 
         plt.setp(axes.get_xticklabels(), rotation=20, ha='right')
         axes.set_yticks(np.arange(0, 16, 2))
@@ -351,5 +395,5 @@ class WELData:
         axes.yaxis.set_label_position("right")
         axes.yaxis.tick_right()
         axes.grid(True)
-        axes.set_xlim(timeRange)
+        axes.set_xlim(timerange)
         plt.tight_layout()
