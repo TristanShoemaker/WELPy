@@ -104,20 +104,43 @@ class WELData:
 
     """
     Check if the last month's log has been downloaded, and download if not.
+
+    month : specify month to download to db. If no month is specified, download
+            the previous month.
+
+    returns a string with the downloaded month.
     """
-    def check_db(self):
+    def check_db(self,
+                 month=None,
+                 forcedl=False):
         if not os.path.exists(self.db_path):
             os.mkdir(self.db_path)
-        lastmonth = dt.datetime.now() - relativedelta(months=1)
+        if month is None:
+            month = dt.datetime.now() - relativedelta(months=1)
         prev_url = ('http://www.welserver.com/WEL1060/'
-                    F'WEL_log_{lastmonth.year}_{lastmonth.month:02d}.xls')
-        prev_db_path = (self.db_path + F'WEL_log_{lastmonth.year}'
-                                       F'_{lastmonth.month:02d}.xls')
-        if not os.path.exists(prev_db_path):
+                    F'WEL_log_{month.year}_{month.month:02d}.xls')
+        prev_db_path = (self.db_path + F'WEL_log_{month.year}'
+                                       F'_{month.month:02d}.xls')
+        if (not os.path.exists(prev_db_path)) or forcedl:
             try:
+                print(F'{month.year}-{month.month}:')
                 wget.download(prev_url, prev_db_path)
+                print()
             except:
-                print('No previous log to download')
+                print('Not available for download')
+                
+
+    """
+    Redownload all months since 2020-2-1 to db.
+    """
+    def refresh_db(self):
+        first = dt.date(2020, 2, 1)
+        now = dt.datetime.now().date()
+        num_months = (now.year - first.year) * 12 + now.month - first.month
+        monthlist = [first + relativedelta(months=x)
+                     for x in range(num_months + 1)]
+        [self.check_db(month=month, forcedl=True) for month in monthlist]
+
 
     """
     Load correct months of data based on timerange.
