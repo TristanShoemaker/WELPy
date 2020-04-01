@@ -54,7 +54,7 @@ class WELData:
     filepath : filepath for data file.
     keepdata : boolean keep downloaded data file. Default False.
     """
-    def load_data(self,
+    def read_log(self,
                   filepath):
         try:
             data = pd.read_excel(filepath)
@@ -112,7 +112,7 @@ class WELData:
         prev_url = ('http://www.welserver.com/WEL1060/'
                     F'WEL_log_{lastmonth.year}_{lastmonth.month:02d}.xls')
         prev_db_path = (self.db_path + F'WEL_log_{lastmonth.year}'
-                                       F'_{lastmonth.month}.xls')
+                                       F'_{lastmonth.month:02d}.xls')
         if not os.path.exists(prev_db_path):
             try:
                 wget.download(prev_url, prev_db_path)
@@ -139,7 +139,7 @@ class WELData:
             loadedstring = [F'{month.year}-{month.month}'
                               for month in monthlist]
             print(F'loaded: {loadedstring}')
-            datalist = [self.load_data(self.db_path + F'WEL_log_{month.year}'
+            datalist = [self.read_log(self.db_path + F'WEL_log_{month.year}'
                                        F'_{month.month:02d}.xls')
                         for month in monthlist]
             self.data = pd.concat(datalist)
