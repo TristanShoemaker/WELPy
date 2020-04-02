@@ -128,13 +128,13 @@ class WELData:
                 print()
             except:
                 print('Not available for download')
-                
+
 
     """
     Redownload all months since 2020-2-1 to db.
     """
     def refresh_db(self):
-        first = dt.date(2020, 2, 1)
+        first = dt.date(2020, 3, 1)
         now = dt.datetime.now().date()
         num_months = (now.year - first.year) * 12 + now.month - first.month
         monthlist = [first + relativedelta(months=x)
