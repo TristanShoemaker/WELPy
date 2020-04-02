@@ -29,14 +29,12 @@ if args.r:
 if len(sys.argv) < 2:
     timerange = [datetime.now() - timedelta(hours=12), 'none']
 
-
-# dat = WELServer.WELData(filepath="./temp_WEL_log_2020_03_18_18_39.xls")
 dat = WELServer.WELData()
 
-fig, axes = plt.subplots(4, 1,
+fig, axes = plt.subplots(5, 1,
                          sharex=True,
-                         figsize=(12,9),
-                         gridspec_kw={'height_ratios': [1, 0.5, 0.5, 1]})
+                         figsize=(12,10),
+                         gridspec_kw={'height_ratios': [1, 0.7, 0.7, 0.7, 0.7]})
 
 dat.plotVar(['TAH_in_T',
              'TAH_out_T',
@@ -50,28 +48,33 @@ dat.plotVar(['TAH_in_T',
             statusmask='heat_1_b',
             axes=axes[0])
 
+dat.plotStatus(timerange=timerange,
+               axes=axes[1])
+
 dat.plotVar(['HP_W / 1000',
              'well_W'],
             yunits='kW',
             timerange=timerange,
             statusmask='heat_1_b',
-            axes=axes[1])
+            axes=axes[2])
 
 dat.plotVar(['TAH_fpm'],
             timerange=timerange,
             yunits='Wind Speed [m/s]',
             statusmask='heat_1_b',
-            axes=axes[2])
+            axes=axes[3])
 
 cops = dat.plotVar(['COP',
                     'well_COP'],
             yunits='COP',
             timerange=timerange,
             statusmask='heat_1_b',
-            axes=axes[3])
+            axes=axes[4])
+axes[4].set_ylim((1, 5))
 
 cop = np.nan_to_num(cops['COP'], nan=np.nan, posinf=np.nan, neginf=np.nan)
-well_cop = np.nan_to_num(cops['well_COP'], nan=np.nan, posinf=np.nan, neginf=np.nan)
+well_cop = np.nan_to_num(cops['well_COP'], nan=np.nan, posinf=np.nan,
+                                           neginf=np.nan)
 
 print(F'COPS mean: {np.nanmean(cop)}')
 print(F'well COPS mean: {np.nanmean(well_cop)}')
