@@ -34,7 +34,7 @@ dat = WELServer.WELData()
 fig, axes = plt.subplots(4, 1,
                          sharex=True,
                          figsize=(12,9),
-                         gridspec_kw={'height_ratios': [1, 0.6, 0.6, 0.6]})
+                         gridspec_kw={'height_ratios': [1, 0.7, 0.7, 0.7]})
 dat.plotVar(['TAH_in_T',
              'TAH_out_T',
              'gas_refrig_T',
@@ -42,7 +42,8 @@ dat.plotVar(['TAH_in_T',
              'loop_in_T',
              'loop_out_T',
              'outside_T',
-             'living_T'],
+             'living_T',
+             'wood_fire_T'],
             timerange=timerange,
             statusmask='heat_1_b',
             axes=axes[0])
