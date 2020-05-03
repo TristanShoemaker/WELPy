@@ -87,6 +87,7 @@ class WELData:
         # Additional calculated columns
         data['power_tot'] = data.HP_W + data.TAH_W
         data['T_diff'] = data.living_T - data.outside_T
+        data.eff = np.abs(data.eff)
         data['eff_ma'] = data.eff.rolling('12H').mean()
         cops = (((1.15 * 0.37 * data.TAH_fpm)
                   * (np.abs(data.TAH_out_T - data.TAH_in_T)))
@@ -131,7 +132,7 @@ class WELData:
 
 
     """
-    Redownload all months since 2020-2-1 to db.
+    Redownload all months since 2020-3-1 to db.
     """
     def refresh_db(self):
         first = dt.date(2020, 3, 1)
