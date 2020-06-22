@@ -308,6 +308,7 @@ class WELData:
                 yunits='None',
                 timerange=None,
                 statusmask=None,
+                maskghost=True,
                 axes=None,
                 nighttime=True,
                 **kwargs):
@@ -333,7 +334,7 @@ class WELData:
             lines = {label:axes.plot_date(plotx, plotDatum * smask, '-',
                                           label=label, **kwargs)
                      for label, plotDatum in zip(y, ploty)}
-            if statusmask is not None:
+            if statusmask is not None and maskghost:
                 [axes.plot_date(plotx, plotDatum, fmt='-', alpha=0.3,
                                 color=lines[label][0].get_color(), **kwargs)
                  for label, plotDatum in zip(y, ploty)]
