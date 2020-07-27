@@ -1,6 +1,4 @@
 import pandas as pd
-from pandas.plotting import register_matplotlib_converters
-register_matplotlib_converters()
 import matplotlib.pyplot as plt
 import numpy as np
 import datetime as dt
@@ -9,7 +7,10 @@ import re
 import wget
 import os
 import shutil
+import argparse
+import sys
 from astral import sun, LocationInfo
+import altair as alt
 
 
 class WELData:
@@ -32,13 +33,41 @@ class WELData:
             self.check_db()
             dat_url = ('http://www.welserver.com/WEL1060/'
                        F'WEL_log_{now.year}_{now.month:02d}.xls')
-            filepath = (self.db_path + F'WEL_log_{now.year}_{now.month:02d}.xls')
+            filepath = (self.db_path
+                        + F'WEL_log_{now.year}_{now.month:02d}.xls')
             downfile = wget.download(dat_url, filepath)
             print()
             if os.path.exists(filepath):
                 shutil.move(downfile, filepath)
 
         self.stitch([now, now])
+
+
+    def time_from_args(self,
+                       arg_string=None):
+        parser = argparse.ArgumentParser()
+        parser.add_argument('-a', action='store_true',
+                            help='plot all data from this month')
+        parser.add_argument('-t', type=int, action='store',
+                            help='specify number of hours into past to plot. '
+                                 'Example: <-t 12> plots the past 12 hours.')
+        parser.add_argument('-r', type=str, action='store', nargs=2,
+                            help='specify start and end time to plot as two '
+                                 'strings in iso format. Example: '
+                                 '<-r \'2020-03-22 12:00\' '
+                                 '\'2020-03-22 15:00\'>')
+
+        args = parser.parse_args(arg_string)
+        timerange = [dt.datetime.now() - dt.timedelta(hours=12), 'none']
+
+        if args.t:
+            timerange = [dt.datetime.now() - dt.timedelta(hours=args.t), 'none']
+        if args.a:
+            timerange = ['none','none']
+        if args.r:
+            timerange = args.r
+
+        return timerange
 
 
     """
@@ -370,6 +399,64 @@ class WELData:
         return {label:datum * smask for label, datum in zip(y, ploty)}
 
 
+    def plotVarAlt(self,
+                   y,
+                   xunits='Time',
+                   yunits='None',
+                   timerange=None,
+                   statusmask=None,
+                   nighttime=True,
+                   **kwargs):
+        timerange = self.timeCondition(timerange)
+        self.stitch(timerange)
+        if type(y) is not list: y = [y]
+
+        tmask = ((self.data.dateandtime > timerange[0])
+                 & (self.data.dateandtime < timerange[1]))
+        p_locals = locals()
+        if statusmask is not None:
+            smask = eval(self.varExprParse(statusmask, mask=True), p_locals)
+        else: smask = np.full(tmask.sum(), True)
+
+        ploty = [eval(self.varExprParse(expr), p_locals) for expr in y]
+
+        if yunits is 'None':
+            usedVars = [var for var in self.data.columns if var in y[0]]
+            if usedVars[0][-1] is 'T':
+                yunits = "Temperature [°C]"
+            if usedVars[0][-1] is 'W':
+                yunits = "Power [W]"
+            if usedVars[0][-3:] is 'fpm':
+                yunits = "Windspeed [m/s]"
+
+        lines = pd.DataFrame({label:plotDatum * smask
+                 for label, plotDatum in zip(y, ploty)})
+        lines.reset_index(inplace=True)
+
+        lines = lines.melt(id_vars='dateandtime',
+                           value_vars=y, var_name='label')
+
+        plot = alt.Chart(lines).mark_line().encode(
+               x=alt.X('dateandtime:T', axis=alt.Axis(title=None, labels=False)),
+               y=alt.Y('value', axis=alt.Axis(format='Q', title=yunits)),
+               color='label')
+
+        # if statusmask is not None and maskghost:
+        #     [axes.plot_date(plotx, plotDatum, fmt='-', alpha=0.3,
+        #                     color=lines[label][0].get_color(), **kwargs)
+        #      for label, plotDatum in zip(y, ploty)]
+
+        # if nighttime:
+        #     self.plotNightime(axes, timerange)
+        # else:
+        #     [plt.plot(plotx, plotDatum, '.', label=label, **kwargs)
+        #      for label, plotDatum in zip(y, ploty)]
+        #     axes.set_xlabel(xunits)
+        #     axes.set_xlim((np.nanmin(plotx), np.nanmax(plotx)))
+
+        return plot
+
+
     """
     Plots all hardcoded status variables against time.
 
@@ -382,15 +469,15 @@ class WELData:
     def plotStatus(self,
                    timerange=None,
                    axes=None,
-                   nighttime=True):
-        status_list = ['aux_heat_b',
-                       'heat_1_b',
-                       'heat_2_b',
-                       'rev_valve_b',
-                       'TAH_fan_b',
-                       'zone_1_b',
-                       'zone_2_b',
-                       'humid_b']
+                   nighttime=True,
+                   status_list=['aux_heat_b',
+                                'heat_1_b',
+                                'heat_2_b',
+                                'rev_valve_b',
+                                'TAH_fan_b',
+                                'zone_1_b',
+                                'zone_2_b',
+                                'humid_b']):
         labels = [stat[:-2] for stat in status_list]
         timerange = self.timeCondition(timerange)
         self.stitch(timerange)
@@ -422,3 +509,42 @@ class WELData:
         axes.grid(True)
         axes.set_xlim(timerange)
         plt.tight_layout()
+
+
+    def plotStatusAlt(self,
+                      timerange=None,
+                      nighttime=True,
+                      status_list=['aux_heat_b',
+                                   'heat_1_b',
+                                   'heat_2_b',
+                                   'rev_valve_b',
+                                   'TAH_fan_b',
+                                   'zone_1_b',
+                                   'zone_2_b',
+                                   'humid_b']):
+        labels = [stat[:-2] for stat in status_list]
+        timerange = self.timeCondition(timerange)
+        self.stitch(timerange)
+
+        tmask = ((self.data.dateandtime > timerange[0])
+               & (self.data.dateandtime < timerange[1]))
+
+        p_locals = locals()
+        ploty = [eval(self.varExprParse(stat), p_locals)
+                    for stat in status_list]
+
+        lines = pd.DataFrame({label:plotDatum % 2
+                              for label, plotDatum in zip(labels, ploty)})
+        lines.reset_index(inplace=True)
+        lines = lines.melt(id_vars='dateandtime',
+                           value_vars=labels, var_name='label')
+        # print(lines)
+
+        plot = alt.Chart(lines).mark_tick().encode(
+               alt.X('dateandtime:T', axis=alt.Axis(title='time', grid=True)),
+               alt.Y('label', axis=alt.Axis(title="status")),
+               alt.Size('value', legend=None, scale=alt.Scale(domain=[0,1])),
+               alt.Color('label', legend=None)
+               )
+
+        return plot
