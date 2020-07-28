@@ -11,14 +11,16 @@ import argparse
 import sys
 from astral import sun, LocationInfo
 import altair as alt
+from pymongo import MongoClient
 
 
 class WELData:
     data = None             # pandas dataframe class variable
     figsize = (11,5)        # default figure size
-    loc = LocationInfo('Home', 'MA', 'EST', 42.485680, -71.435226) # for sun
-    db_path = './log_db/'
-
+    loc = LocationInfo('Home', 'MA', 'EST', 42.485557, -71.433445) # for sun
+    dl_db_path = './log_db/'
+    mongo_db = None
+    data_source = None
 
     """
     Initialize the Weldata Object.
@@ -26,21 +28,37 @@ class WELData:
     month's log is downloaded and read.
     """
     def __init__(self,
-                 download=True):
+                 data_source='WEL',
+                 download=True,
+                 local=False):
+        self.data_source = data_source
+        if local:
+            mongo_ip = 'localhost'
+        else:
+            mongo_ip = '192.168.68.114'
+
         now = dt.datetime.now()
 
-        if download:
-            self.check_db()
-            dat_url = ('http://www.welserver.com/WEL1060/'
-                       F'WEL_log_{now.year}_{now.month:02d}.xls')
-            filepath = (self.db_path
-                        + F'WEL_log_{now.year}_{now.month:02d}.xls')
-            downfile = wget.download(dat_url, filepath)
-            print()
-            if os.path.exists(filepath):
-                shutil.move(downfile, filepath)
+        if self.data_source is 'WEL':
+            if download:
+                self.check_dl_db()
+                dat_url = ('http://www.welserver.com/WEL1060/'
+                           F'WEL_log_{now.year}_{now.month:02d}.xls')
+                filepath = (self.dl_db_path
+                            + F'WEL_log_{now.year}_{now.month:02d}.xls')
+                downfile = wget.download(dat_url, filepath)
+                print()
+                if os.path.exists(filepath):
+                    shutil.move(downfile, filepath)
 
-        self.stitch([now, now])
+            self.stitch([now, now])
+        elif self.data_source is 'Pi':
+            address = "mongodb://" + mongo_ip + ":27017"
+            client = MongoClient(address)
+            self.mongo_db = client.WEL
+        else:
+            print("Valid data sources are 'Pi' or 'WEL'")
+            quit()
 
 
     def time_from_args(self,
@@ -84,7 +102,7 @@ class WELData:
     keepdata : boolean keep downloaded data file. Default False.
     """
     def read_log(self,
-                  filepath):
+                  filepath=None):
         try:
             data = pd.read_excel(filepath)
         except:
@@ -113,23 +131,32 @@ class WELData:
         data.HP_W  = data.HP_W.shift(-1)
         data.TAH_W  = data.TAH_W.shift(-1)
 
-        # Additional calculated columns
-        data['power_tot'] = data.HP_W + data.TAH_W
-        data['T_diff'] = data.living_T - data.outside_T
-        data.eff = np.abs(data.eff)
-        data['eff_ma'] = data.eff.rolling('12H').mean()
-        cops = (((1.15 * 0.37 * data.TAH_fpm)
-                  * (np.abs(data.TAH_out_T - data.TAH_in_T)))
-                  / (data.HP_W / 1000))
-        cops[cops > 10] = np.nan
-        data['COP'] = cops
-        data['well_W'] = ((0.0008517177 * 1e3) * 4.186
-                          * (np.abs(data.loop_out_T - data.loop_in_T)))
-        well_COP = data.well_W / (data.HP_W / 1000)
-        well_COP[well_COP > 10] = np.nan
-        data['well_COP'] = well_COP
+        data = pd.concat((data, self.calced_cols(data)), axis=1)
 
         return data
+
+
+    def calced_cols(self,
+                    frame):
+        out_frame = pd.DataFrame()
+
+        # Additional calculated columns
+        out_frame['power_tot'] = frame.HP_W + frame.TAH_W
+        out_frame['T_diff'] = frame.living_T - frame.outside_T
+        out_frame['eff'] = np.abs(frame.eff)
+        out_frame['eff_ma'] = frame.eff.rolling('12H').mean()
+        cops = (((1.15 * 0.37 * frame.TAH_fpm)
+                  * (np.abs(frame.TAH_out_T - frame.TAH_in_T)))
+                  / (frame.HP_W / 1000))
+        cops[cops > 12] = np.nan
+        out_frame['COP'] = cops
+        out_frame['well_W'] = ((0.0008517177 * 1e3) * 4.186
+                          * (np.abs(frame.loop_out_T - frame.loop_in_T)))
+        well_COP = out_frame.well_W / (frame.HP_W / 1000)
+        well_COP[well_COP > 10] = np.nan
+        out_frame['well_COP'] = well_COP
+
+        return out_frame
 
 
     """
@@ -140,16 +167,16 @@ class WELData:
 
     returns a string with the downloaded month.
     """
-    def check_db(self,
+    def check_dl_db(self,
                  month=None,
                  forcedl=False):
-        if not os.path.exists(self.db_path):
-            os.mkdir(self.db_path)
+        if not os.path.exists(self.dl_db_path):
+            os.mkdir(self.dl_db_path)
         if month is None:
             month = dt.datetime.now() - relativedelta(months=1)
         prev_url = ('http://www.welserver.com/WEL1060/'
                     F'WEL_log_{month.year}_{month.month:02d}.xls')
-        prev_db_path = (self.db_path + F'WEL_log_{month.year}'
+        prev_db_path = (self.dl_db_path + F'WEL_log_{month.year}'
                                        F'_{month.month:02d}.xls')
         if (not os.path.exists(prev_db_path)) or forcedl:
             try:
@@ -169,7 +196,7 @@ class WELData:
         num_months = (now.year - first.year) * 12 + now.month - first.month
         monthlist = [first + relativedelta(months=x)
                      for x in range(num_months + 1)]
-        [self.check_db(month=month, forcedl=True) for month in monthlist]
+        [self.check_dl_db(month=month, forcedl=True) for month in monthlist]
 
 
     """
@@ -177,25 +204,33 @@ class WELData:
     """
     def stitch(self,
                timerange):
-        load_new = False
-        if self.data is not None:
-            if ((self.data.dateandtime.iloc[0] > timerange[0]) or
-                (self.data.dateandtime.iloc[-1] < timerange[1])):
+        if self.data_source is 'WEL':
+            load_new = False
+            if self.data is not None:
+                if ((self.data.dateandtime.iloc[0] > timerange[0]) or
+                    (self.data.dateandtime.iloc[-1] < timerange[1])):
+                    load_new = True
+            else:
                 load_new = True
-        else:
-            load_new = True
-        if load_new:
-            num_months = ((timerange[1].year - timerange[0].year) * 12
-                          + timerange[1].month - timerange[0].month)
-            monthlist = [timerange[0] + relativedelta(months=x)
-                         for x in range(num_months + 1)]
-            loadedstring = [F'{month.year}-{month.month}'
-                              for month in monthlist]
-            print(F'loaded: {loadedstring}')
-            datalist = [self.read_log(self.db_path + F'WEL_log_{month.year}'
-                                       F'_{month.month:02d}.xls')
-                        for month in monthlist]
-            self.data = pd.concat(datalist)
+            if load_new:
+                num_months = ((timerange[1].year - timerange[0].year) * 12
+                              + timerange[1].month - timerange[0].month)
+                monthlist = [timerange[0] + relativedelta(months=x)
+                             for x in range(num_months + 1)]
+                loadedstring = [F'{month.year}-{month.month}'
+                                  for month in monthlist]
+                print(F'loaded: {loadedstring}')
+                datalist = [self.read_log(self.dl_db_path + F'WEL_log_{month.year}'
+                                           F'_{month.month:02d}.xls')
+                            for month in monthlist]
+                self.data = pd.concat(datalist)
+
+        if self.data_source is 'Pi':
+            query = {'dateandtime':{'$gte': timerange[0], '$lte': timerange[1]}}
+            self.data = pd.DataFrame(list(self.mongo_db.data.find(query)))
+            # For now, calculate columns at data load
+            self.data = pd.concat((self.data, self.calced_cols(self.data)),
+                                  axis=1)
 
 
     """
