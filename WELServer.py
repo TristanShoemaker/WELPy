@@ -32,7 +32,7 @@ class WELData:
     month's log is downloaded and read.
     """
     def __init__(self,
-                 data_source='WEL',
+                 data_source='Pi',
                  timerange=None,
                  WEL_download=True,
                  mongo_local=False):
@@ -50,14 +50,16 @@ class WELData:
         if self.data_source is 'WEL':
             if WEL_download:
                 self.check_dl_db()
-                dat_url = ('http://www.welserver.com/WEL1060/'
-                           F'WEL_log_{self.now.year}_{self.now.month:02d}.xls')
-                filepath = (self.dl_db_path
-                            + F'WEL_log_{self.now.year}_{self.now.month:02d}.xls')
-                downfile = download(dat_url, filepath)
+                dat_url = ("http://www.welserver.com/WEL1060/"
+                           + F"WEL_log_{self.now.year}"
+                           + F"_{self.now.month:02d}.xls")
+                downfilepath = (self.dl_db_path
+                                + F"WEL_log_{self.now.year}"
+                                + F"_{self.now.month:02d}.xls")
+                downfile = download(dat_url, downfilepath)
                 print()
-                if os.path.exists(filepath):
-                    move(downfile, filepath)
+                if os.path.exists(downfilepath):
+                    move(downfile, downfilepath)
 
             self.stitch()
         elif self.data_source is 'Pi':
@@ -107,7 +109,7 @@ class WELData:
     keepdata : boolean keep downloaded data file. Default False.
     """
     def read_log(self,
-                  filepath=None):
+                 filepath):
         try:
             data = pd.read_excel(filepath)
         except:
@@ -130,11 +132,7 @@ class WELData:
         data.index = data['dateandtime']
         data = data.tz_localize(tz.gettz('EST'))
         data = data.tz_convert(self.to_tzone)
-
-
-        # Shift power meter data by one sample for better alignment with others
-        data.HP_W  = data.HP_W.shift(-1)
-        data.TAH_W  = data.TAH_W.shift(-1)
+        data.drop(columns=['Date', 'Time'])
 
         data = pd.concat((data, self.calced_cols(data)), axis=1)
 
@@ -195,7 +193,8 @@ class WELData:
     """
     def refresh_db(self):
         first = dt.date(2020, 3, 1)
-        num_months = (self.now.date.year - first.year) * 12 + self.now.date.month - first.month
+        num_months = ((self.now.date.year - first.year) * 12
+                      + self.now.date.month - first.month)
         monthlist = [first + relativedelta(months=x)
                      for x in range(num_months + 1)]
         [self.check_dl_db(month=month, forcedl=True) for month in monthlist]
@@ -221,24 +220,29 @@ class WELData:
                 loadedstring = [F'{month.year}-{month.month}'
                                   for month in monthlist]
                 print(F'loaded: {loadedstring}')
-                datalist = [self.read_log(self.dl_db_path + F'WEL_log_{month.year}'
-                                           F'_{month.month:02d}.xls')
+                datalist = [self.read_log(self.dl_db_path
+                                          + F'WEL_log_{month.year}'
+                                          + F'_{month.month:02d}.xls')
                             for month in monthlist]
+                print(datalist)
                 self.data = pd.concat(datalist)
 
         if self.data_source is 'Pi':
             query = {'dateandtime':{'$gte': self.timerange[0].astimezone(self.db_tzone),
                                     '$lte': self.timerange[1].astimezone(self.db_tzone)}}
-            print(query)
+            # print(F"#DEBUG: query: {query}")
             self.data = pd.DataFrame(list(self.mongo_db.data.find(query)))
             self.data.index = self.data['dateandtime']
             self.data = self.data.tz_localize(self.db_tzone)
-            print(F"from: {self.data.index[-1]} to {self.data.index[0]}")
             self.data = self.data.tz_convert(self.to_tzone)
-            print(F"from: {self.data.index[-1]} to {self.data.index[0]}")
+            # print(F"#DEBUG: timerange from: {self.data.index[-1]} to {self.data.index[0]}")
             # For now, calculate columns at data load
             self.data = pd.concat((self.data, self.calced_cols(self.data)),
                                   axis=1)
+
+        # Shift power meter data by one sample for better alignment with others
+        self.data.HP_W  = self.data.HP_W.shift(-1)
+        self.data.TAH_W  = self.data.TAH_W.shift(-1)
 
 
     """
