@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-dat = WELServer.WELData()
+dat = WELServer.WELData(data_source='Pi')
 
-timerange = dat.time_from_args()
+# timerange = dat.time_from_args()
 
 fig, axes = plt.subplots(3, 1,
                          sharex=True,
@@ -21,18 +21,14 @@ dat.plotVar(['TAH_in_T',
              'outside_T',
              'living_T',
              'trist_T'],
-            timerange=timerange,
             statusmask='heat_1_b',
             axes=axes[0])
 
-dat.plotStatus(timerange=timerange,
-               axes=axes[1])
+dat.plotStatus(axes=axes[1])
 
-full_range_delta = timerange[1] - timerange[0]
-rolling_interval = np.clip(round((full_range_delta.seconds / 3600) / 6), 1, 6)
-# rolling_interval = 6
+full_range_delta = dat.timerange[1] - dat.timerange[0]
+rolling_interval = np.clip(round((full_range_delta.total_seconds() / 3600) / 6), 1, 6)
 dat.plotVar([F"COP.rolling('{rolling_interval}H').mean()"],
-        timerange=timerange,
         yunits=F'COP {rolling_interval} Hr Rolling Mean',
         axes=axes[2])
 
