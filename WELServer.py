@@ -40,6 +40,8 @@ class WELData:
         self.now = dt.datetime.now().astimezone(self.to_tzone)
         if timerange is None:
             self.timerange = self.time_from_args()
+        else:
+            self.timerange = self.time_from_args(timerange)
         self.timerange = [time.replace(tzinfo=self.to_tzone)
                           for time in self.timerange]
         if mongo_local:
@@ -144,7 +146,6 @@ class WELData:
         out_frame = pd.DataFrame()
 
         # Additional calculated columns
-        out_frame['power_tot'] = frame.HP_W + frame.TAH_W
         out_frame['T_diff'] = frame.living_T - frame.outside_T
         cops = (((1.15 * 0.37 * frame.TAH_fpm)
                   * (np.abs(frame.TAH_out_T - frame.TAH_in_T)))
@@ -233,6 +234,8 @@ class WELData:
             # print(F"#DEBUG: query: {query}")
             self.data = pd.DataFrame(list(self.mongo_db.data.find(query)))
             self.data.index = self.data['dateandtime']
+            self.data.drop(columns=['dateandtime'], inplace=True)
+            print(self.data.columns)
             self.data = self.data.tz_localize(self.db_tzone)
             self.data = self.data.tz_convert(self.to_tzone)
             # print(F"#DEBUG: timerange from: {self.data.index[-1]} to {self.data.index[0]}")
@@ -386,7 +389,7 @@ class WELData:
         p_locals = locals()
         if statusmask is not None:
             smask = eval(self.varExprParse(statusmask, mask=True), p_locals)
-        else: smask = np.full(np.shape(self.data.dateandtime), True)
+        else: smask = np.full(np.shape(self.data.index), True)
 
         # plotx = eval(self.varExprParse(x), p_locals)
         ploty = [eval(self.varExprParse(expr), p_locals) for expr in y]
@@ -447,7 +450,7 @@ class WELData:
         p_locals = locals()
         if statusmask is not None:
             smask = eval(self.varExprParse(statusmask, mask=True), p_locals)
-        else: smask = np.full(np.shape(self.data.dateandtime), True)
+        else: smask = np.full(np.shape(self.data.index), True)
 
         ploty = [eval(self.varExprParse(expr), p_locals) for expr in y]
 
@@ -471,19 +474,6 @@ class WELData:
                x=alt.X('dateandtime:T', axis=alt.Axis(title=None, labels=False)),
                y=alt.Y('value', axis=alt.Axis(format='Q', title=yunits)),
                color='label')
-
-        # if statusmask is not None and maskghost:
-        #     [axes.plot_date(plotx, plotDatum, fmt='-', alpha=0.3,
-        #                     color=lines[label][0].get_color(), **kwargs)
-        #      for label, plotDatum in zip(y, ploty)]
-
-        # if nighttime:
-        #     self.plotNightime(axes, timerange)
-        # else:
-        #     [plt.plot(plotx, plotDatum, '.', label=label, **kwargs)
-        #      for label, plotDatum in zip(y, ploty)]
-        #     axes.set_xlabel(xunits)
-        #     axes.set_xlim((np.nanmin(plotx), np.nanmax(plotx)))
 
         return plot
 
