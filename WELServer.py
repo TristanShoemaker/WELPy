@@ -184,10 +184,12 @@ class WELData:
                                               F'_{month.month:02d}.xls')
         if (not os.path.exists(prev_db_path_xls)) or forcedl:
             try:
-                print(prev_url)
+                # print(prev_db_path_zip)
                 print(F'{month.year}-{month.month}:')
                 download(prev_url, prev_db_path_zip)
-                os.system(F'unzip {prev_db_path_zip}; rm {prev_db_path_zip}')
+                print()
+                os.system(F'unzip {prev_db_path_zip} -d {self.dl_db_path}'
+                          F';rm {prev_db_path_zip}')
                 print()
             except:
                 print('Not available for download')
