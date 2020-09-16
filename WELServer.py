@@ -177,13 +177,17 @@ class WELData:
         if month is None:
             month = self.now - relativedelta(months=1)
         prev_url = ('http://www.welserver.com/WEL1060/'
-                    F'WEL_log_{month.year}_{month.month:02d}.xls')
-        prev_db_path = (self.dl_db_path + F'WEL_log_{month.year}'
-                                       F'_{month.month:02d}.xls')
-        if (not os.path.exists(prev_db_path)) or forcedl:
+                    F'WEL_log_{month.year}_{month.month:02d}.zip')
+        prev_db_path_zip = (self.dl_db_path + F'WEL_log_{month.year}'
+                                              F'_{month.month:02d}.zip')
+        prev_db_path_xls = (self.dl_db_path + F'WEL_log_{month.year}'
+                                              F'_{month.month:02d}.xls')
+        if (not os.path.exists(prev_db_path_xls)) or forcedl:
             try:
+                print(prev_url)
                 print(F'{month.year}-{month.month}:')
-                download(prev_url, prev_db_path)
+                download(prev_url, prev_db_path_zip)
+                os.system(F'unzip {prev_db_path_zip}; rm {prev_db_path_zip}')
                 print()
             except:
                 print('Not available for download')
@@ -194,8 +198,8 @@ class WELData:
     """
     def refresh_db(self):
         first = dt.date(2020, 3, 1)
-        num_months = ((self.now.date.year - first.year) * 12
-                      + self.now.date.month - first.month)
+        num_months = ((self.now.year - first.year) * 12
+                      + self.now.month - first.month)
         monthlist = [first + relativedelta(months=x)
                      for x in range(num_months + 1)]
         [self.check_dl_db(month=month, forcedl=True) for month in monthlist]
@@ -225,7 +229,7 @@ class WELData:
                                           + F'WEL_log_{month.year}'
                                           + F'_{month.month:02d}.xls')
                             for month in monthlist]
-                print(datalist)
+                # print(datalist)
                 self.data = pd.concat(datalist)
 
         if self.data_source is 'Pi':
@@ -235,7 +239,7 @@ class WELData:
             self.data = pd.DataFrame(list(self.mongo_db.data.find(query)))
             self.data.index = self.data['dateandtime']
             self.data.drop(columns=['dateandtime'], inplace=True)
-            print(self.data.columns)
+            # print(self.data.columns)
             self.data = self.data.tz_localize(self.db_tzone)
             self.data = self.data.tz_convert(self.to_tzone)
             # print(F"#DEBUG: timerange from: {self.data.index[-1]} to {self.data.index[0]}")
