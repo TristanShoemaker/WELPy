@@ -436,8 +436,9 @@ class WELData:
         axes.yaxis.tick_right()
         # axes.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
         #             ncol=len(y), mode="expand", borderaxespad=0)
-        axes.legend(bbox_to_anchor=(-0.01, 1,), loc='upper right',
-                    borderaxespad=0)
+        # axes.legend(bbox_to_anchor=(-0.01, 1,), loc='upper right',
+        #             borderaxespad=0)
+        axes.legend(borderaxespad=0)
         axes.grid(True)
         plt.tight_layout()
 
