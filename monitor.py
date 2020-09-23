@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-dat = WELServer.WELData(data_source='WEL')
+dat = WELServer.WELData(data_source='Pi')
 
 fig, axes = plt.subplots(4, 1,
                          sharex=True,
