@@ -8,7 +8,7 @@ dat = WELServer.WELData(data_source='Pi')
 fig, axes = plt.subplots(4, 1,
                          sharex=True,
                          figsize=(9,9.5),
-                         gridspec_kw={'height_ratios': [0.4, 0.4, 0.6, 0.4]})
+                         gridspec_kw={'height_ratios': [0.3, 0.4, 0.6, 0.2]})
 
 dat.plotStatus(axes=axes[0])
 
@@ -26,7 +26,7 @@ dat.plotVar(['TAH_in_T',
              'gas_refrig_T'],
             statusmask='heat_1_b',
             axes=axes[2])
-dat.plotVar(['outside_T'], axes=axes[2])
+dat.plotVar(['outside_T'], axes=axes[2], nighttime=False)
 outside_T_line = [x for x in axes[2].get_lines()
                   if x.get_label() == "outside_T"][0]
 outside_T_line.set(lw=2.5)
