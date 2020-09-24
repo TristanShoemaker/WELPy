@@ -348,7 +348,7 @@ class WELData:
                 axes.fill_between(timelist, np.full(len(timelist), limits[0]),
                                   np.full(len(timelist), limits[1]),
                                   where=[True, True, False, False, True, True],
-                                  facecolor='black', alpha=0.1)
+                                  facecolor='black', alpha=0.05)
         return timelist
 
 
