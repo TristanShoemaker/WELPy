@@ -439,7 +439,7 @@ class WELData:
         #             ncol=7, mode="expand", borderaxespad=0)
         # axes.legend(bbox_to_anchor=(-0.01, 1,), loc='upper right',
         #             borderaxespad=0)
-        axes.legend(borderaxespad=0)
+        axes.legend(borderaxespad=0, loc='center left')
         axes.grid(True)
         plt.tight_layout()
 
