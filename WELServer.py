@@ -331,14 +331,13 @@ class WELData:
                      plot=True):
         dayList = [(self.timerange[0] + dt.timedelta(days=x - 1)).date()
                     for x in range((self.timerange[1] - self.timerange[0]).days + 3)]
-
         for day in dayList:
             day = dt.datetime.combine(day, dt.datetime.min.time())
             sunrise = sun.sunrise(self.loc.observer, date=day,
                                   tzinfo=self.to_tzone)
             sunset = sun.sunset(self.loc.observer,date=day,
                                 tzinfo=self.to_tzone)
-            # print(F"#DEBUG: sunrise: {sunrise}, sunset: {sunset}")
+            print(F"#DEBUG: sunrise: {sunrise}, sunset: {sunset}")
             timelist = [day, sunrise - dt.timedelta(seconds=1), sunrise,
                         sunset, sunset + dt.timedelta(seconds=1),
                         day + dt.timedelta(days=1)]
@@ -350,7 +349,7 @@ class WELData:
                                   np.full(len(timelist), limits[1]),
                                   where=[True, True, False, False, True, True],
                                   facecolor='black', alpha=0.1)
-            return timelist
+        return timelist
 
 
     """
@@ -437,7 +436,7 @@ class WELData:
         axes.yaxis.set_label_position("right")
         axes.yaxis.tick_right()
         # axes.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
-        #             ncol=len(y), mode="expand", borderaxespad=0)
+        #             ncol=7, mode="expand", borderaxespad=0)
         # axes.legend(bbox_to_anchor=(-0.01, 1,), loc='upper right',
         #             borderaxespad=0)
         axes.legend(borderaxespad=0)
