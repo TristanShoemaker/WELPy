@@ -34,7 +34,7 @@ class WELData:
     def __init__(self,
                  data_source='Pi',
                  timerange=None,
-                 WEL_download=True,
+                 WEL_download=False,
                  mongo_local=False):
         self.data_source = data_source
         self.now = dt.datetime.now().astimezone(self.to_tzone)
@@ -239,6 +239,8 @@ class WELData:
                                     '$lte': self.timerange[1].astimezone(self.db_tzone)}}
             # print(F"#DEBUG: query: {query}")
             self.data = pd.DataFrame(list(self.mongo_db.data.find(query)))
+            if len(self.data) is 0:
+                raise Exception("No data came back from mongo server.")
             self.data.index = self.data['dateandtime']
             self.data.drop(columns=['dateandtime'], inplace=True)
             # print(self.data.columns)
@@ -426,11 +428,11 @@ class WELData:
         if yunits is 'None':
             usedVars = [var for var in self.data.columns if var in y[0]]
             if usedVars[0][-1] is 'T':
-                yunits = "Temperature [°C]"
+                yunits = "Temperature / °C"
             if usedVars[0][-1] is 'W':
-                yunits = "Power [W]"
+                yunits = "Power / W"
             if usedVars[0][-3:] is 'fpm':
-                yunits = "Windspeed [m/s]"
+                yunits = "Windspeed / m/s"
         axes.set_ylabel(yunits)
         axes.yaxis.set_label_position("right")
         axes.yaxis.tick_right()
@@ -443,47 +445,6 @@ class WELData:
         plt.tight_layout()
 
         return {label:datum * smask for label, datum in zip(y, ploty)}
-
-
-    def plotVarAlt(self,
-                   y,
-                   xunits='Time',
-                   yunits='None',
-                   statusmask=None,
-                   nighttime=True,
-                   **kwargs):
-        if type(y) is not list: y = [y]
-
-        p_locals = locals()
-        if statusmask is not None:
-            smask = eval(self.varExprParse(statusmask, mask=True), p_locals)
-        else: smask = np.full(np.shape(self.data.index), True)
-
-        ploty = [eval(self.varExprParse(expr), p_locals) for expr in y]
-
-        if yunits is 'None':
-            usedVars = [var for var in self.data.columns if var in y[0]]
-            if usedVars[0][-1] is 'T':
-                yunits = "Temperature [°C]"
-            if usedVars[0][-1] is 'W':
-                yunits = "Power [W]"
-            if usedVars[0][-3:] is 'fpm':
-                yunits = "Windspeed [m/s]"
-
-        lines = pd.DataFrame({label:plotDatum * smask
-                 for label, plotDatum in zip(y, ploty)})
-        lines.reset_index(inplace=True)
-
-        lines = lines.melt(id_vars='dateandtime',
-                           value_vars=y, var_name='label')
-
-        plot = alt.Chart(lines).mark_line().encode(
-               x=alt.X('dateandtime:T', axis=alt.Axis(title=None, labels=False)),
-               y=alt.Y('value', axis=alt.Axis(format='Q', title=yunits)),
-               color='label')
-
-        return plot
-
 
     """
     Plots all hardcoded status variables against time.
@@ -531,36 +492,3 @@ class WELData:
         axes.grid(True)
         axes.set_xlim(self.timerange)
         plt.tight_layout()
-
-
-    def plotStatusAlt(self,
-                      nighttime=True,
-                      status_list=['aux_heat_b',
-                                   'heat_1_b',
-                                   'heat_2_b',
-                                   'rev_valve_b',
-                                   'TAH_fan_b',
-                                   'zone_1_b',
-                                   'zone_2_b',
-                                   'humid_b']):
-        labels = [stat[:-2] for stat in status_list]
-
-        p_locals = locals()
-        ploty = [eval(self.varExprParse(stat), p_locals)
-                    for stat in status_list]
-
-        lines = pd.DataFrame({label:plotDatum % 2
-                              for label, plotDatum in zip(labels, ploty)})
-        lines.reset_index(inplace=True)
-        lines = lines.melt(id_vars='dateandtime',
-                           value_vars=labels, var_name='label')
-        # print(lines)
-
-        plot = alt.Chart(lines).mark_tick().encode(
-               alt.X('dateandtime:T', axis=alt.Axis(title='time', grid=True)),
-               alt.Y('label', axis=alt.Axis(title="status")),
-               alt.Size('value', legend=None, scale=alt.Scale(domain=[0,1])),
-               alt.Color('label', legend=None)
-               )
-
-        return plot
