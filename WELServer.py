@@ -9,13 +9,12 @@ import os
 from shutil import move
 import argparse
 from astral import sun, LocationInfo
-import altair as alt
 from pymongo import MongoClient
 from dateutil import tz
 
 
 class WELData:
-    figsize = (11,5)        # default matplotlib figure size
+    figsize = (11, 5)        # default matplotlib figure size
     loc = LocationInfo('Home', 'MA', 'America/New_York', 42.485557, -71.433445)
     dl_db_path = './log_db/'
     db_tzone = tz.gettz('UTC')
@@ -49,7 +48,7 @@ class WELData:
         else:
             mongo_ip = '192.168.68.101'
 
-        if self.data_source is 'WEL':
+        if self.data_source == 'WEL':
             if WEL_download:
                 self.check_dl_db()
                 dat_url = ("http://www.welserver.com/WEL1060/"
@@ -64,7 +63,7 @@ class WELData:
                     move(downfile, downfilepath)
 
             self.stitch()
-        elif self.data_source is 'Pi':
+        elif self.data_source == 'Pi':
             address = "mongodb://" + mongo_ip + ":27017"
             client = MongoClient(address)
             self.mongo_db = client.WEL
@@ -72,7 +71,6 @@ class WELData:
         else:
             print("Valid data sources are 'Pi' or 'WEL'")
             quit()
-
 
     def time_from_args(self,
                        arg_string=None):
@@ -96,7 +94,6 @@ class WELData:
 
         return self.timeCondition(timerange)
 
-
     """
     From a filepath, load that data.
     Columns with all NaNs are dropped.
@@ -114,9 +111,9 @@ class WELData:
                  filepath):
         try:
             data = pd.read_excel(filepath)
-        except:
+        except Exception:
             data = pd.read_csv(filepath, sep='\t',
-                                    index_col=False, na_values=['?'])
+                               index_col=False, na_values=['?'])
 
         for col in data.columns:
             if ('Date' not in col) and ('Time' not in col):
@@ -129,8 +126,8 @@ class WELData:
                                                          "%H:%M:%S").time())
 
         data['dateandtime'] = [dt.datetime.combine(date, time)
-                                 for date, time in zip(data.Date,
-                                                       data.Time)]
+                               for date, time in zip(data.Date,
+                                                     data.Time)]
         data.index = data['dateandtime']
         data = data.tz_localize(tz.gettz('EST'))
         data = data.tz_convert(self.to_tzone)
@@ -140,7 +137,6 @@ class WELData:
 
         return data
 
-
     def calced_cols(self,
                     frame):
         out_frame = pd.DataFrame()
@@ -148,18 +144,17 @@ class WELData:
         # Additional calculated columns
         out_frame['T_diff'] = frame.living_T - frame.outside_T
         cops = (((1.15 * 0.37 * frame.TAH_fpm)
-                  * (np.abs(frame.TAH_out_T - frame.TAH_in_T)))
-                  / (frame.HP_W / 1000))
+                * (np.abs(frame.TAH_out_T - frame.TAH_in_T)))
+                / (frame.HP_W / 1000))
         cops[cops > 12] = np.nan
         out_frame['COP'] = cops
         out_frame['well_W'] = ((0.0008517177 * 1e3) * 4.186
-                          * (np.abs(frame.loop_out_T - frame.loop_in_T)))
+                               * (np.abs(frame.loop_out_T - frame.loop_in_T)))
         well_COP = out_frame.well_W / (frame.HP_W / 1000)
         well_COP[well_COP > 10] = np.nan
         out_frame['well_COP'] = well_COP
 
         return out_frame
-
 
     """
     Check if the last month's log has been downloaded, and download if not.
@@ -170,8 +165,8 @@ class WELData:
     returns a string with the downloaded month.
     """
     def check_dl_db(self,
-                 month=None,
-                 forcedl=False):
+                    month=None,
+                    forcedl=False):
         if not os.path.exists(self.dl_db_path):
             os.mkdir(self.dl_db_path)
         if month is None:
@@ -191,9 +186,8 @@ class WELData:
                 os.system(F'unzip {prev_db_path_zip} -d {self.dl_db_path}'
                           F';rm {prev_db_path_zip}')
                 print()
-            except:
+            except Exception:
                 print('Not available for download')
-
 
     """
     Redownload all months since 2020-3-1 to db.
@@ -206,26 +200,26 @@ class WELData:
                      for x in range(num_months + 1)]
         [self.check_dl_db(month=month, forcedl=True) for month in monthlist]
 
-
     """
     Load correct months of data based on timerange.
     """
     def stitch(self):
-        if self.data_source is 'WEL':
+        if self.data_source == 'WEL':
             load_new = False
             if self.data is not None:
                 if ((self.data.dateandtime.iloc[0] > self.timerange[0]) or
-                    (self.data.dateandtime.iloc[-1] < self.timerange[1])):
+                   (self.data.dateandtime.iloc[-1] < self.timerange[1])):
                     load_new = True
             else:
                 load_new = True
             if load_new:
-                num_months = ((self.timerange[1].year - self.timerange[0].year) * 12
-                              + self.timerange[1].month - self.timerange[0].month)
+                num_months = ((self.timerange[1].year - self.timerange[0].year)
+                              * 12 + self.timerange[1].mont
+                              - self.timerange[0].month)
                 monthlist = [self.timerange[0] + relativedelta(months=x)
                              for x in range(num_months + 1)]
                 loadedstring = [F'{month.year}-{month.month}'
-                                  for month in monthlist]
+                                for month in monthlist]
                 print(F'loaded: {loadedstring}')
                 datalist = [self.read_log(self.dl_db_path
                                           + F'WEL_log_{month.year}'
@@ -234,27 +228,29 @@ class WELData:
                 # print(datalist)
                 self.data = pd.concat(datalist)
 
-        if self.data_source is 'Pi':
-            query = {'dateandtime':{'$gte': self.timerange[0].astimezone(self.db_tzone),
-                                    '$lte': self.timerange[1].astimezone(self.db_tzone)}}
+        if self.data_source == 'Pi':
+            query = {'dateandtime': {'$gte': self.timerange[0]
+                                     .astimezone(self.db_tzone),
+                                     '$lte': self.timerange[1]
+                                     .astimezone(self.db_tzone)}}
             # print(F"#DEBUG: query: {query}")
             self.data = pd.DataFrame(list(self.mongo_db.data.find(query)))
-            if len(self.data) is 0:
+            if len(self.data) == 0:
                 raise Exception("No data came back from mongo server.")
             self.data.index = self.data['dateandtime']
             self.data.drop(columns=['dateandtime'], inplace=True)
             # print(self.data.columns)
             self.data = self.data.tz_localize(self.db_tzone)
             self.data = self.data.tz_convert(self.to_tzone)
-            # print(F"#DEBUG: timerange from: {self.data.index[-1]} to {self.data.index[0]}")
+            # print(F"#DEBUG: timerange from: {self.data.index[-1]}"
+            #       "to {self.data.index[0]}")
             # For now, calculate columns at data load
             self.data = pd.concat((self.data, self.calced_cols(self.data)),
                                   axis=1)
 
         # Shift power meter data by one sample for better alignment with others
-        self.data.HP_W  = self.data.HP_W.shift(-1)
-        self.data.TAH_W  = self.data.TAH_W.shift(-1)
-
+        self.data.HP_W = self.data.HP_W.shift(-1)
+        self.data.TAH_W = self.data.TAH_W.shift(-1)
 
     """
     Returns list of all column names.
@@ -262,15 +258,14 @@ class WELData:
     def vars(self):
         return [col for col in self.data.columns]
 
-
     """
     Takes a list with a start and end time. If either is 'none', defaults to
-    12 hours ago or latest time respectively. Converts iso strings to datetime, keeps
-    datetime as datetime.
+    12 hours ago or latest time respectively. Converts iso strings to datetime,
+    keeps datetime as datetime.
     """
     def timeCondition(self,
                       timerange):
-        if timerange == None:
+        if timerange is None:
             timerange = [self.now - dt.timedelta(hours=12), self.now]
             return timerange
         if timerange[0] == 'none':
@@ -286,8 +281,6 @@ class WELData:
 
         return timerange
 
-
-
     """
     Converts variable name string into object data string, to be evaluated as
     a python expression.
@@ -299,7 +292,7 @@ class WELData:
     def varExprParse(self,
                      string,
                      mask=False):
-        splitString = re.split('(\\()|(\\))|(\s)', string)
+        splitString = re.split('(\\()|(\\))|(\\s)', string)
         splitString = [w for w in splitString if w is not None]
 
         expr = ""
@@ -318,7 +311,6 @@ class WELData:
 
         return expr
 
-
     """
     Adds day/night background shading based on calculated sunrise/sunset times
     to the specified axes.
@@ -327,15 +319,16 @@ class WELData:
     timerange : timerange to plot on.
     """
     def plotNighttime(self,
-                     axes=None,
-                     plot=True):
+                      axes=None,
+                      plot=True):
         dayList = [(self.timerange[0] + dt.timedelta(days=x - 1)).date()
-                    for x in range((self.timerange[1] - self.timerange[0]).days + 3)]
+                   for x in range((self.timerange[1]
+                                   - self.timerange[0]).days + 3)]
         for day in dayList:
             day = dt.datetime.combine(day, dt.datetime.min.time())
             sunrise = sun.sunrise(self.loc.observer, date=day,
                                   tzinfo=self.to_tzone)
-            sunset = sun.sunset(self.loc.observer,date=day,
+            sunset = sun.sunset(self.loc.observer, date=day,
                                 tzinfo=self.to_tzone)
             print(F"#DEBUG: sunrise: {sunrise}, sunset: {sunset}")
             timelist = [day, sunrise - dt.timedelta(seconds=1), sunrise,
@@ -351,7 +344,6 @@ class WELData:
                                   facecolor='black', alpha=0.05)
         return timelist
 
-
     """
     Remove plotting offset from status channel data
     status : data from which to remove offset
@@ -361,7 +353,6 @@ class WELData:
         mask = np.array(status) % 2
         mask[mask == 0.] = np.nan
         return mask
-
 
     """
     Plot two variables against each other.
@@ -392,11 +383,13 @@ class WELData:
                 axes=None,
                 nighttime=True,
                 **kwargs):
-        if type(y) is not list: y = [y]
+        if type(y) is not list:
+            y = [y]
         p_locals = locals()
         if statusmask is not None:
             smask = eval(self.varExprParse(statusmask, mask=True), p_locals)
-        else: smask = np.full(np.shape(self.data.index), True)
+        else:
+            smask = np.full(np.shape(self.data.index), True)
 
         # plotx = eval(self.varExprParse(x), p_locals)
         ploty = [eval(self.varExprParse(expr), p_locals) for expr in y]
@@ -405,10 +398,9 @@ class WELData:
             fig = plt.figure(figsize=self.figsize)
             axes = plt.gca()
 
-
         if ('time' or 'date') in x:
-            lines = {label:axes.plot_date(plotDatum.index, plotDatum * smask, '-',
-                                          label=label, **kwargs)
+            lines = {label: axes.plot_date(plotDatum.index, plotDatum * smask,
+                                           '-', label=label, **kwargs)
                      for label, plotDatum in zip(y, ploty)}
             if statusmask is not None and maskghost:
                 [axes.plot_date(plotDatum.index, plotDatum, fmt='-', alpha=0.3,
@@ -424,13 +416,13 @@ class WELData:
         #     axes.set_xlabel(xunits)
         #     axes.set_xlim((np.nanmin(plotx), np.nanmax(plotx)))
 
-        if yunits is 'None':
+        if yunits == 'None':
             usedVars = [var for var in self.data.columns if var in y[0]]
-            if usedVars[0][-1] is 'T':
+            if usedVars[0][-1] == 'T':
                 yunits = "Temperature / °C"
-            if usedVars[0][-1] is 'W':
+            if usedVars[0][-1] == 'W':
                 yunits = "Power / W"
-            if usedVars[0][-3:] is 'fpm':
+            if usedVars[0][-3:] == 'fpm':
                 yunits = "Windspeed / m/s"
         axes.set_ylabel(yunits)
         axes.yaxis.set_label_position("right")
@@ -443,7 +435,7 @@ class WELData:
         axes.grid(True)
         plt.tight_layout()
 
-        return {label:datum * smask for label, datum in zip(y, ploty)}
+        return {label: datum * smask for label, datum in zip(y, ploty)}
 
     """
     Plots all hardcoded status variables against time.
@@ -470,7 +462,7 @@ class WELData:
         p_locals = locals()
         # plotx = eval(self.varExprParse('dateandtime'), p_locals)
         ploty = [eval(self.varExprParse(stat), p_locals)
-                    for stat in status_list]
+                 for stat in status_list]
 
         if axes is None:
             fig = plt.figure(figsize=(self.figsize[0], self.figsize[1] * 0.75))
