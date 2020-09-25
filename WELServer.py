@@ -326,7 +326,7 @@ class WELData:
     axes : axes to plot on.
     timerange : timerange to plot on.
     """
-    def plotNightime(self,
+    def plotNighttime(self,
                      axes=None,
                      plot=True):
         dayList = [(self.timerange[0] + dt.timedelta(days=x - 1)).date()
@@ -417,7 +417,7 @@ class WELData:
             plt.setp(axes.get_xticklabels(), rotation=20, ha='right')
             axes.set_xlim(self.timerange)
             if nighttime:
-                self.plotNightime(axes=axes)
+                self.plotNighttime(axes=axes)
         # else:
         #     [plt.plot(plotx, plotDatum, '.', label=label, **kwargs)
         #      for label, plotDatum in zip(y, ploty)]
@@ -481,7 +481,7 @@ class WELData:
 
         axes.set_ylim((-0.75, 2 * (len(status_list) - 1) + 1.75))
         if nighttime:
-            self.plotNightime(axes=axes)
+            self.plotNighttime(axes=axes)
 
         plt.setp(axes.get_xticklabels(), rotation=20, ha='right')
         axes.set_yticks(np.arange(0, 16, 2))
