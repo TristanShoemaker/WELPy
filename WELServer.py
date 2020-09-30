@@ -214,7 +214,7 @@ class WELData:
                 load_new = True
             if load_new:
                 num_months = ((self.timerange[1].year - self.timerange[0].year)
-                              * 12 + self.timerange[1].mont
+                              * 12 + self.timerange[1].month
                               - self.timerange[0].month)
                 monthlist = [self.timerange[0] + relativedelta(months=x)
                              for x in range(num_months + 1)]
@@ -330,7 +330,7 @@ class WELData:
                                   tzinfo=self.to_tzone)
             sunset = sun.sunset(self.loc.observer, date=day,
                                 tzinfo=self.to_tzone)
-            print(F"#DEBUG: sunrise: {sunrise}, sunset: {sunset}")
+            # print(F"#DEBUG: sunrise: {sunrise}, sunset: {sunset}")
             timelist = [day, sunrise - dt.timedelta(seconds=1), sunrise,
                         sunset, sunset + dt.timedelta(seconds=1),
                         day + dt.timedelta(days=1)]
