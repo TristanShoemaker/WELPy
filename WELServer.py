@@ -39,8 +39,10 @@ class WELData:
         self.now = dt.datetime.now().astimezone(self.to_tzone)
         if timerange is None:
             self.timerange = self.time_from_args()
-        else:
+        elif type(timerange[0]) is str:
             self.timerange = self.time_from_args(timerange)
+        else:
+            self.timerange = self.timeCondition(timerange)
         self.timerange = [time.replace(tzinfo=self.to_tzone)
                           for time in self.timerange]
         if mongo_local:
