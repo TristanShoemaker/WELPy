@@ -10,6 +10,7 @@ from shutil import move
 import argparse
 from astral import sun, LocationInfo
 from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure
 from dateutil import tz
 
 
@@ -33,8 +34,7 @@ class WELData:
     def __init__(self,
                  data_source='Pi',
                  timerange=None,
-                 WEL_download=False,
-                 mongo_local=False):
+                 WEL_download=False):
         self.data_source = data_source
         self.now = dt.datetime.now().astimezone(self.to_tzone)
         if timerange is None:
@@ -45,10 +45,6 @@ class WELData:
             self.timerange = self.timeCondition(timerange)
         self.timerange = [time.replace(tzinfo=self.to_tzone)
                           for time in self.timerange]
-        if mongo_local:
-            mongo_ip = 'localhost'
-        else:
-            mongo_ip = '192.168.68.101'
 
         if self.data_source == 'WEL':
             if WEL_download:
@@ -66,8 +62,15 @@ class WELData:
 
             self.stitch()
         elif self.data_source == 'Pi':
-            address = "mongodb://" + mongo_ip + ":27017"
-            client = MongoClient(address)
+            try:
+                address = "mongodb://localhost:27017"
+                client = MongoClient(address)
+            except ConnectionFailure:
+                try:
+                    address = "mongodb://192.168.68.101:27017"
+                    client = MongoClient(address)
+                except ConnectionFailure:
+                    raise("Error connecting to Mongo server.")
             self.mongo_db = client.WEL
             self.stitch()
         else:
