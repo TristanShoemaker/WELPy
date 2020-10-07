@@ -38,7 +38,7 @@ class WELData:
         self.data_source = data_source
         self.now = dt.datetime.now().astimezone(self.to_tzone)
         if timerange is None:
-            self.timerange = self.time_from_args(['-t', '12'])
+            self.timerange = self.time_from_args()
         elif type(timerange[0]) is str:
             self.timerange = self.time_from_args(timerange)
         else:
@@ -85,10 +85,8 @@ class WELData:
                                  'strings in iso format. Example: '
                                  '<-r \'2020-03-22 12:00\' '
                                  '\'2020-03-22 15:00\'>')
-        if arg_string is not None:
-            args = parser.parse_args(arg_string)
-        else:
-            args = parser.parse_args()
+
+        args = parser.parse_args(arg_string)
         timerange = None
 
         if args.t:
@@ -157,11 +155,6 @@ class WELData:
         well_COP = out_frame.well_W / (frame.HP_W / 1000)
         well_COP[well_COP > 10] = np.nan
         out_frame['well_COP'] = well_COP
-        stl = self.plotNighttime(plot=False)
-        daylight = [(time > stl.loc[stl.day == time.date()].sunrise).any()
-                    and (time < stl.loc[stl.day == time.date()].sunset).any()
-                    for time in frame.index]
-        out_frame['daylight'] = daylight
 
         return out_frame
 
@@ -333,7 +326,6 @@ class WELData:
         dayList = [(self.timerange[0] + dt.timedelta(days=x - 1)).date()
                    for x in range((self.timerange[1]
                                    - self.timerange[0]).days + 3)]
-        timeList = []
         for day in dayList:
             day = dt.datetime.combine(day, dt.datetime.min.time())
             sunrise = sun.sunrise(self.loc.observer, date=day,
@@ -341,24 +333,18 @@ class WELData:
             sunset = sun.sunset(self.loc.observer, date=day,
                                 tzinfo=self.to_tzone)
             # print(F"#DEBUG: sunrise: {sunrise}, sunset: {sunset}")
-            times = [day, sunrise - dt.timedelta(seconds=1), sunrise,
-                     sunset, sunset + dt.timedelta(seconds=1),
-                     day + dt.timedelta(days=1)]
+            timelist = [day, sunrise - dt.timedelta(seconds=1), sunrise,
+                        sunset, sunset + dt.timedelta(seconds=1),
+                        day + dt.timedelta(days=1)]
 
-            timeList.append({'day': day.date(),
-                             'sunrise': sunrise,
-                             'sunset': sunset})
             if plot:
                 axes.autoscale(enable=False)
                 limits = axes.get_ylim()
-                axes.fill_between(times, np.full(len(times), limits[0]),
-                                  np.full(len(times), limits[1]),
+                axes.fill_between(timelist, np.full(len(timelist), limits[0]),
+                                  np.full(len(timelist), limits[1]),
                                   where=[True, True, False, False, True, True],
                                   facecolor='black', alpha=0.05)
-
-        timeList = pd.DataFrame(timeList)
-        # timeList.index = timeList.day
-        return timeList
+        return timelist
 
     """
     Remove plotting offset from status channel data
