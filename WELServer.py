@@ -6,6 +6,7 @@ from dateutil.relativedelta import relativedelta
 import re
 from wget import download
 import os
+import sys
 from shutil import move
 import argparse
 from astral import sun, LocationInfo
@@ -62,15 +63,14 @@ class WELData:
 
             self.stitch()
         elif self.data_source == 'Pi':
-            try:
+            if sys.platform == 'linux':
                 address = "mongodb://localhost:27017"
                 client = MongoClient(address)
-            except ConnectionFailure:
-                try:
-                    address = "mongodb://192.168.68.101:27017"
-                    client = MongoClient(address)
-                except ConnectionFailure:
-                    raise("Error connecting to Mongo server.")
+            elif ConnectionFailure:
+                address = "mongodb://192.168.68.101:27017"
+                client = MongoClient(address)
+            else:
+                raise("Unrecognized platform")
             self.mongo_db = client.WEL
             self.stitch()
         else:
