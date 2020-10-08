@@ -15,6 +15,18 @@ from pymongo.errors import ConnectionFailure
 from dateutil import tz
 
 
+def mongoConnect():
+    if sys.platform == 'linux':
+        address = "mongodb://localhost:27017"
+        client = MongoClient(address)
+    elif ConnectionFailure:
+        address = "mongodb://192.168.68.101:27017"
+        client = MongoClient(address)
+    else:
+        raise("Unrecognized platform")
+    return client.WEL
+
+
 class WELData:
     figsize = (11, 5)        # default matplotlib figure size
     loc = LocationInfo('Home', 'MA', 'America/New_York', 42.485557, -71.433445)
@@ -35,7 +47,8 @@ class WELData:
     def __init__(self,
                  data_source='Pi',
                  timerange=None,
-                 WEL_download=False):
+                 WEL_download=False,
+                 mongo_connection=None):
         self.data_source = data_source
         self.now = dt.datetime.now().astimezone(self.to_tzone)
         if timerange is None:
@@ -63,15 +76,10 @@ class WELData:
 
             self.stitch()
         elif self.data_source == 'Pi':
-            if sys.platform == 'linux':
-                address = "mongodb://localhost:27017"
-                client = MongoClient(address)
-            elif ConnectionFailure:
-                address = "mongodb://192.168.68.101:27017"
-                client = MongoClient(address)
+            if mongo_connection is None:
+                self.mongo_db = mongoConnect()
             else:
-                raise("Unrecognized platform")
-            self.mongo_db = client.WEL
+                self.mongo_db = mongo_connection
             self.stitch()
         else:
             print("Valid data sources are 'Pi' or 'WEL'")
