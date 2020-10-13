@@ -1,0 +1,4 @@
+__pycache__/
+log_db/
+.DS_Store
+solar_coeff.py
