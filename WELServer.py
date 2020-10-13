@@ -161,7 +161,8 @@ class WELData:
                 / (frame.HP_W / 1000))
         cops[cops > 12] = np.nan
         out_frame['COP'] = cops
-        out_frame['well_W'] = ((0.0008517177 * 1e3) * 4.186
+        well_gpm = 13.6
+        out_frame['well_W'] = ((well_gpm * 0.0630902) * 4.186
                                * (np.abs(frame.loop_out_T - frame.loop_in_T)))
         well_COP = out_frame.well_W / (frame.HP_W / 1000)
         well_COP[well_COP > 10] = np.nan
