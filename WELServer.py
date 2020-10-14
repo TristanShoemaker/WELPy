@@ -11,7 +11,6 @@ from shutil import move
 import argparse
 from astral import sun, LocationInfo
 from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure
 from dateutil import tz
 
 
@@ -19,7 +18,7 @@ def mongoConnect():
     if sys.platform == 'linux':
         address = "mongodb://localhost:27017"
         client = MongoClient(address)
-    elif ConnectionFailure:
+    elif sys.platform == 'darwin':
         address = "mongodb://192.168.68.101:27017"
         client = MongoClient(address)
     else:
@@ -241,6 +240,9 @@ class WELData:
                             for month in monthlist]
                 # print(datalist)
                 self.data = pd.concat(datalist)
+                tmask = ((self.data.index > self.timerange[0])
+                         & (self.data.index < self.timerange[1]))
+                self.data = self.data[tmask]
 
         if self.data_source == 'Pi':
             query = {'dateandtime': {'$gte': self.timerange[0]
