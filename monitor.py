@@ -3,14 +3,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-dat = WELServer.WELData(data_source='Pi')
+dat = WELServer.WELData(data_source='WEL')
 
 fig, axes = plt.subplots(4, 1,
                          sharex=True,
                          figsize=(9, 9.5),
                          gridspec_kw={'height_ratios': [0.3, 0.4, 0.6, 0.2]})
 
-dat.plotStatus(axes=axes[0])
+stat = dat.plotStatus(axes=axes[0])
 
 dat.plotVar(['living_T',
              'trist_T',
