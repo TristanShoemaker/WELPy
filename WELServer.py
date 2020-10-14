@@ -207,13 +207,14 @@ class WELData:
     """
     Redownload all months since 2020-3-1 to db.
     """
-    def refresh_db(self):
+    def refresh_db(self,
+                   forcedl=False):
         first = dt.date(2020, 3, 1)
         num_months = ((self.now.year - first.year) * 12
                       + self.now.month - first.month)
         monthlist = [first + relativedelta(months=x)
                      for x in range(num_months + 1)]
-        [self.check_dl_db(month=month, forcedl=True) for month in monthlist]
+        [self.check_dl_db(month=month, forcedl=forcedl) for month in monthlist]
 
     """
     Load correct months of data based on timerange.
