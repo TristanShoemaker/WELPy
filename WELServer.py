@@ -60,8 +60,8 @@ class WELData:
                           for time in self.timerange]
 
         if self.data_source == 'WEL':
+            self.check_dl_db()
             if WEL_download:
-                self.check_dl_db()
                 dat_url = ("http://www.welserver.com/WEL1060/"
                            + F"WEL_log_{self.now.year}"
                            + F"_{self.now.month:02d}.xls")
