@@ -29,7 +29,7 @@ def mongoConnect():
 class WELData:
     figsize = (11, 5)        # default matplotlib figure size
     loc = LocationInfo('Home', 'MA', 'America/New_York', 42.485557, -71.433445)
-    dl_db_path = './log_db/'
+    dl_db_path = None
     db_tzone = tz.gettz('UTC')
     to_tzone = tz.gettz('America/New_York')
     mongo_db = None
@@ -47,8 +47,10 @@ class WELData:
                  data_source='Pi',
                  timerange=None,
                  WEL_download=False,
+                 dl_db_path='./log_db/',
                  mongo_connection=None):
         self.data_source = data_source
+        self.dl_db_path = dl_db_path
         self.now = dt.datetime.now().astimezone(self.to_tzone)
         if timerange is None:
             self.timerange = self.time_from_args()
