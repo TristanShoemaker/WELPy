@@ -62,7 +62,7 @@ class WELData:
                           for time in self.timerange]
 
         if self.data_source == 'WEL':
-            self.check_dl_db()
+            self.refresh_db()
             if WEL_download:
                 dat_url = ("http://www.welserver.com/WEL1060/"
                            + F"WEL_log_{self.now.year}"
